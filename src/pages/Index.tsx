@@ -49,7 +49,7 @@ export default function Index() {
                     <Link to="/auth">Entrar</Link>
                   </Button>
                   <Button asChild>
-                    <Link to="/auth">Começar Agora</Link>
+                    <Link to="/auth">Começar agora</Link>
                   </Button>
                 </>}
             </div>
