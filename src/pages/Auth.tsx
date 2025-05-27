@@ -8,13 +8,15 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Bot, MessageSquare } from 'lucide-react';
+import { Bot, MessageSquare, AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export default function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -27,18 +29,58 @@ export default function Auth() {
     return null;
   }
 
+  const getErrorMessage = (error: any) => {
+    console.log('Auth error:', error);
+    
+    if (!error) return null;
+    
+    const errorMessage = error.message || error.error_description || String(error);
+    
+    // Mapear erros específicos para mensagens em português
+    if (errorMessage.includes('Email signups are disabled') || errorMessage.includes('email_provider_disabled')) {
+      return 'O cadastro por email está temporariamente desabilitado. Entre em contato com o suporte.';
+    }
+    
+    if (errorMessage.includes('Email logins are disabled')) {
+      return 'O login por email está temporariamente desabilitado. Entre em contato com o suporte.';
+    }
+    
+    if (errorMessage.includes('Invalid login credentials')) {
+      return 'Email ou senha incorretos. Verifique suas credenciais.';
+    }
+    
+    if (errorMessage.includes('User already registered')) {
+      return 'Este email já está cadastrado. Tente fazer login.';
+    }
+    
+    if (errorMessage.includes('Password should be at least')) {
+      return 'A senha deve ter pelo menos 6 caracteres.';
+    }
+    
+    if (errorMessage.includes('Invalid email')) {
+      return 'Por favor, insira um email válido.';
+    }
+    
+    // Erro genérico
+    return 'Erro de autenticação. Tente novamente em alguns instantes.';
+  };
+
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setAuthError(null);
+    
+    console.log('Tentando fazer login com:', { email });
     
     const { error } = await signIn(email, password);
     
     if (error) {
+      console.error('Erro no login:', error);
+      const errorMsg = getErrorMessage(error);
+      setAuthError(errorMsg);
       toast({
         title: "Erro no login",
-        description: error.message === 'Invalid login credentials' 
-          ? 'Email ou senha incorretos'
-          : 'Erro ao fazer login. Tente novamente.',
+        description: errorMsg,
         variant: "destructive",
       });
     } else {
@@ -55,15 +97,32 @@ export default function Auth() {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setAuthError(null);
+    
+    // Validações básicas
+    if (!fullName.trim()) {
+      setAuthError('Por favor, insira seu nome completo.');
+      setLoading(false);
+      return;
+    }
+    
+    if (password.length < 6) {
+      setAuthError('A senha deve ter pelo menos 6 caracteres.');
+      setLoading(false);
+      return;
+    }
+    
+    console.log('Tentando criar conta com:', { email, fullName });
     
     const { error } = await signUp(email, password, fullName);
     
     if (error) {
+      console.error('Erro no cadastro:', error);
+      const errorMsg = getErrorMessage(error);
+      setAuthError(errorMsg);
       toast({
         title: "Erro no cadastro",
-        description: error.message === 'User already registered'
-          ? 'Este email já está cadastrado'
-          : 'Erro ao criar conta. Tente novamente.',
+        description: errorMsg,
         variant: "destructive",
       });
     } else {
@@ -71,6 +130,10 @@ export default function Auth() {
         title: "Conta criada com sucesso!",
         description: "Você pode fazer login agora",
       });
+      // Limpar formulário após sucesso
+      setEmail('');
+      setPassword('');
+      setFullName('');
     }
     
     setLoading(false);
@@ -96,10 +159,17 @@ export default function Auth() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {authError && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{authError}</AlertDescription>
+              </Alert>
+            )}
+            
             <Tabs defaultValue="signin" className="w-full">
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="signin">Entrar</TabsTrigger>
-                <TabsTrigger value="signup">Cadastrar</TabsTrigger>
+                <TabsTrigger value="signin" onClick={() => setAuthError(null)}>Entrar</TabsTrigger>
+                <TabsTrigger value="signup" onClick={() => setAuthError(null)}>Cadastrar</TabsTrigger>
               </TabsList>
               
               <TabsContent value="signin">
@@ -113,6 +183,7 @@ export default function Auth() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
+                      disabled={loading}
                     />
                   </div>
                   <div className="space-y-2">
@@ -124,6 +195,7 @@ export default function Auth() {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
+                      disabled={loading}
                     />
                   </div>
                   <Button type="submit" className="w-full" disabled={loading}>
@@ -143,6 +215,7 @@ export default function Auth() {
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
                       required
+                      disabled={loading}
                     />
                   </div>
                   <div className="space-y-2">
@@ -154,6 +227,7 @@ export default function Auth() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
+                      disabled={loading}
                     />
                   </div>
                   <div className="space-y-2">
@@ -165,7 +239,10 @@ export default function Auth() {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
+                      disabled={loading}
+                      minLength={6}
                     />
+                    <p className="text-sm text-gray-500">Mínimo de 6 caracteres</p>
                   </div>
                   <Button type="submit" className="w-full" disabled={loading}>
                     {loading ? 'Criando conta...' : 'Criar conta'}
