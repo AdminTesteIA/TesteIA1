@@ -1,48 +1,38 @@
-
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Bot, MessageSquare, Zap, Shield, Smartphone, Brain } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-
 export default function Index() {
-  const { user } = useAuth();
-
-  const features = [
-    {
-      icon: Bot,
-      title: "Agentes de IA Inteligentes",
-      description: "Crie agentes personalizados com prompts específicos para diferentes necessidades do seu negócio."
-    },
-    {
-      icon: MessageSquare,
-      title: "Integração WhatsApp",
-      description: "Conecte facilmente seus números de WhatsApp e automatize o atendimento aos clientes."
-    },
-    {
-      icon: Brain,
-      title: "Base de Conhecimento",
-      description: "Adicione documentos e informações para que seus agentes respondam com precisão."
-    },
-    {
-      icon: Zap,
-      title: "Respostas Instantâneas",
-      description: "Atendimento 24/7 com respostas rápidas e contextualizadas para seus clientes."
-    },
-    {
-      icon: Shield,
-      title: "Seguro e Confiável",
-      description: "Seus dados e conversas são protegidos com a mais alta segurança."
-    },
-    {
-      icon: Smartphone,
-      title: "Interface Moderna",
-      description: "Dashboard intuitivo e responsivo para gerenciar tudo em um só lugar."
-    }
-  ];
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
+  const {
+    user
+  } = useAuth();
+  const features = [{
+    icon: Bot,
+    title: "Agentes de IA Inteligentes",
+    description: "Crie agentes personalizados com prompts específicos para diferentes necessidades do seu negócio."
+  }, {
+    icon: MessageSquare,
+    title: "Integração WhatsApp",
+    description: "Conecte facilmente seus números de WhatsApp e automatize o atendimento aos clientes."
+  }, {
+    icon: Brain,
+    title: "Base de Conhecimento",
+    description: "Adicione documentos e informações para que seus agentes respondam com precisão."
+  }, {
+    icon: Zap,
+    title: "Respostas Instantâneas",
+    description: "Atendimento 24/7 com respostas rápidas e contextualizadas para seus clientes."
+  }, {
+    icon: Shield,
+    title: "Seguro e Confiável",
+    description: "Seus dados e conversas são protegidos com a mais alta segurança."
+  }, {
+    icon: Smartphone,
+    title: "Interface Moderna",
+    description: "Dashboard intuitivo e responsivo para gerenciar tudo em um só lugar."
+  }];
+  return <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
       {/* Header */}
       <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -52,20 +42,16 @@ export default function Index() {
               <span className="text-xl font-bold text-gray-900">ReplyAgent</span>
             </div>
             <div className="flex items-center space-x-4">
-              {user ? (
-                <Button asChild>
+              {user ? <Button asChild>
                   <Link to="/dashboard">Dashboard</Link>
-                </Button>
-              ) : (
-                <>
+                </Button> : <>
                   <Button variant="ghost" asChild>
                     <Link to="/auth">Entrar</Link>
                   </Button>
                   <Button asChild>
                     <Link to="/auth">Começar Agora</Link>
                   </Button>
-                </>
-              )}
+                </>}
             </div>
           </div>
         </div>
@@ -89,7 +75,7 @@ export default function Index() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button size="lg" asChild className="text-lg px-8 py-3">
-              <Link to="/auth">Começar Gratuitamente</Link>
+              <Link to="/auth">Começar llGratuitamente</Link>
             </Button>
             <Button size="lg" variant="outline" className="text-lg px-8 py-3">
               Ver Como Funciona
@@ -110,8 +96,7 @@ export default function Index() {
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {features.map((feature, index) => (
-              <Card key={index} className="border-0 shadow-lg hover:shadow-xl transition-shadow">
+            {features.map((feature, index) => <Card key={index} className="border-0 shadow-lg hover:shadow-xl transition-shadow">
                 <CardHeader>
                   <div className="flex items-center space-x-3">
                     <div className="p-2 bg-gradient-to-br from-blue-100 to-green-100 rounded-lg">
@@ -125,8 +110,7 @@ export default function Index() {
                     {feature.description}
                   </CardDescription>
                 </CardContent>
-              </Card>
-            ))}
+              </Card>)}
           </div>
         </div>
       </section>
@@ -158,6 +142,5 @@ export default function Index() {
           </p>
         </div>
       </footer>
-    </div>
-  );
+    </div>;
 }
