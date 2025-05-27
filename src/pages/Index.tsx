@@ -39,7 +39,7 @@ export default function Index() {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-2">
               <Bot className="h-8 w-8 text-blue-600" />
-              <span className="text-xl font-bold text-gray-900">ReplyAgent</span>
+              <span className="text-xl font-bold text-gray-900">Nick</span>
             </div>
             <div className="flex items-center space-x-4">
               {user ? <Button asChild>
@@ -89,9 +89,7 @@ export default function Index() {
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
               Tudo que você precisa para automatizar
             </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Uma plataforma completa para criar, gerenciar e otimizar seus agentes de IA para WhatsApp
-            </p>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">Uma plataforma completa para criar, gerenciar e otimizar seus agentes de IA para WhatsApp.</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {features.map((feature, index) => <Card key={index} className="border-0 shadow-lg hover:shadow-xl transition-shadow">
@@ -123,7 +121,7 @@ export default function Index() {
             Junte-se a milhares de empresas que já automatizaram seu WhatsApp com IA
           </p>
           <Button size="lg" variant="secondary" asChild className="text-lg px-8 py-3">
-            <Link to="/auth">Criar Minha Conta Grátis</Link>
+            <Link to="/auth">Criar minha conta grátis</Link>
           </Button>
         </div>
       </section>
@@ -133,11 +131,9 @@ export default function Index() {
         <div className="max-w-7xl mx-auto text-center">
           <div className="flex items-center justify-center space-x-2 mb-4">
             <Bot className="h-8 w-8 text-blue-400" />
-            <span className="text-xl font-bold">ReplyAgent</span>
+            <span className="text-xl font-bold">Nick</span>
           </div>
-          <p className="text-gray-400">
-            © 2024 ReplyAgent. Todos os direitos reservados.
-          </p>
+          <p className="text-gray-400">© 2024 Nick IA. Todos os direitos reservados.</p>
         </div>
       </footer>
     </div>;
