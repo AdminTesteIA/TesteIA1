@@ -43,7 +43,7 @@ export default function Index() {
             </div>
             <div className="flex items-center space-x-4">
               {user ? <Button asChild>
-                  <Link to="/dashboard">Dashboard</Link>
+                  <Link to="/dashboard">Painel de controle</Link>
                 </Button> : <>
                   <Button variant="ghost" asChild>
                     <Link to="/auth">Entrar</Link>
