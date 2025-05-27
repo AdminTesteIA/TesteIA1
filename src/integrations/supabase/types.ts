@@ -9,7 +9,215 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      agents: {
+        Row: {
+          base_prompt: string
+          created_at: string
+          id: string
+          is_active: boolean
+          knowledge_base: string | null
+          name: string
+          openai_api_key: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          base_prompt: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          knowledge_base?: string | null
+          name: string
+          openai_api_key?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          base_prompt?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          knowledge_base?: string | null
+          name?: string
+          openai_api_key?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      conversations: {
+        Row: {
+          contact_name: string | null
+          contact_number: string
+          created_at: string
+          id: string
+          last_message_at: string
+          whatsapp_number_id: string
+        }
+        Insert: {
+          contact_name?: string | null
+          contact_number: string
+          created_at?: string
+          id?: string
+          last_message_at?: string
+          whatsapp_number_id: string
+        }
+        Update: {
+          contact_name?: string | null
+          contact_number?: string
+          created_at?: string
+          id?: string
+          last_message_at?: string
+          whatsapp_number_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_whatsapp_number_id_fkey"
+            columns: ["whatsapp_number_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_numbers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_files: {
+        Row: {
+          agent_id: string
+          content: string | null
+          created_at: string
+          file_path: string
+          file_type: string
+          filename: string
+          id: string
+        }
+        Insert: {
+          agent_id: string
+          content?: string | null
+          created_at?: string
+          file_path: string
+          file_type: string
+          filename: string
+          id?: string
+        }
+        Update: {
+          agent_id?: string
+          content?: string | null
+          created_at?: string
+          file_path?: string
+          file_type?: string
+          filename?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_files_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          is_from_contact: boolean
+          message_type: string
+          metadata: Json | null
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          is_from_contact?: boolean
+          message_type?: string
+          metadata?: Json | null
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          is_from_contact?: boolean
+          message_type?: string
+          metadata?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          full_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          full_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      whatsapp_numbers: {
+        Row: {
+          agent_id: string
+          created_at: string
+          id: string
+          is_connected: boolean
+          phone_number: string
+          qr_code: string | null
+          session_data: Json | null
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string
+          id?: string
+          is_connected?: boolean
+          phone_number: string
+          qr_code?: string | null
+          session_data?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string
+          id?: string
+          is_connected?: boolean
+          phone_number?: string
+          qr_code?: string | null
+          session_data?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_numbers_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
