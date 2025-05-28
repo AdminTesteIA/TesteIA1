@@ -4,12 +4,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { MessageSquare, Send, Phone, User, Clock, Search } from 'lucide-react';
+import { MessageSquare, Send, Phone, User, Search } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { RealtimeNotifications } from '@/components/RealtimeNotifications';
+import { MessageDeliveryStatus } from '@/components/MessageDeliveryStatus';
 
 interface Conversation {
   id: string;
@@ -33,6 +35,7 @@ interface Message {
   is_from_contact: boolean;
   created_at: string;
   message_type: string;
+  delivery_status?: 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
 }
 
 export default function Conversations() {
@@ -48,6 +51,7 @@ export default function Conversations() {
   useEffect(() => {
     if (user) {
       fetchConversations();
+      setupRealtimeSubscriptions();
     }
   }, [user]);
 
@@ -56,6 +60,50 @@ export default function Conversations() {
       fetchMessages(selectedConversation.id);
     }
   }, [selectedConversation]);
+
+  const setupRealtimeSubscriptions = () => {
+    // Inscrever para atualizações em tempo real nas mensagens
+    const messagesChannel = supabase
+      .channel('messages-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages'
+        },
+        (payload) => {
+          const newMessage = payload.new as Message;
+          if (selectedConversation && newMessage.conversation_id === selectedConversation.id) {
+            setMessages(prev => [...prev, newMessage]);
+          }
+          fetchConversations(); // Atualizar lista de conversas
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'messages'
+        },
+        (payload) => {
+          const updatedMessage = payload.new as Message;
+          if (selectedConversation && updatedMessage.conversation_id === selectedConversation.id) {
+            setMessages(prev => 
+              prev.map(msg => 
+                msg.id === updatedMessage.id ? updatedMessage : msg
+              )
+            );
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(messagesChannel);
+    };
+  };
 
   const fetchConversations = async () => {
     if (!user) return;
@@ -114,21 +162,40 @@ export default function Conversations() {
     setSendingMessage(true);
 
     try {
-      // Inserir mensagem no banco
-      const { error } = await supabase
+      // Inserir mensagem no banco com status 'sending'
+      const { data, error } = await supabase
         .from('messages')
         .insert({
           conversation_id: selectedConversation.id,
           content: newMessage.trim(),
           is_from_contact: false,
-          message_type: 'text'
-        });
+          message_type: 'text',
+          delivery_status: 'sending'
+        })
+        .select()
+        .single();
 
       if (error) {
         console.error('Erro ao enviar mensagem:', error);
         toast.error('Erro ao enviar mensagem');
         return;
       }
+
+      // Simular envio para WhatsApp e atualizar status
+      setTimeout(async () => {
+        await supabase
+          .from('messages')
+          .update({ delivery_status: 'sent' })
+          .eq('id', data.id);
+
+        // Simular entrega após 2 segundos
+        setTimeout(async () => {
+          await supabase
+            .from('messages')
+            .update({ delivery_status: 'delivered' })
+            .eq('id', data.id);
+        }, 2000);
+      }, 1000);
 
       // Atualizar última mensagem da conversa
       await supabase
@@ -137,18 +204,20 @@ export default function Conversations() {
         .eq('id', selectedConversation.id);
 
       setNewMessage('');
-      fetchMessages(selectedConversation.id);
-      fetchConversations(); // Atualizar lista de conversas
       toast.success('Mensagem enviada!');
-
-      // Aqui seria onde você chamaria a API do WhatsApp para enviar a mensagem real
-      // Exemplo: await sendWhatsAppMessage(selectedConversation.whatsapp_number.phone_number, newMessage);
 
     } catch (error) {
       console.error('Erro ao enviar mensagem:', error);
       toast.error('Erro ao enviar mensagem');
     } finally {
       setSendingMessage(false);
+    }
+  };
+
+  const handleNewMessageNotification = () => {
+    fetchConversations();
+    if (selectedConversation) {
+      fetchMessages(selectedConversation.id);
     }
   };
 
@@ -168,6 +237,8 @@ export default function Conversations() {
 
   return (
     <div className="space-y-6">
+      <RealtimeNotifications onNewMessage={handleNewMessageNotification} />
+      
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Conversas</h1>
@@ -293,17 +364,11 @@ export default function Conversations() {
                           }`}
                         >
                           <p className="text-sm">{message.content}</p>
-                          <div className={`flex items-center space-x-1 mt-1 text-xs ${
-                            message.is_from_contact ? 'text-gray-500' : 'text-blue-100'
-                          }`}>
-                            <Clock className="h-3 w-3" />
-                            <span>
-                              {new Date(message.created_at).toLocaleTimeString('pt-BR', {
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
-                            </span>
-                          </div>
+                          <MessageDeliveryStatus
+                            status={message.delivery_status}
+                            timestamp={message.created_at}
+                            isFromContact={message.is_from_contact}
+                          />
                         </div>
                       </div>
                     ))
