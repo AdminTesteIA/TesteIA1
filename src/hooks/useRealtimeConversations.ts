@@ -23,7 +23,7 @@ interface Message {
   created_at: string;
   message_type: string;
   conversation_id: string;
-  delivery_status?: 'sent' | 'delivered' | 'read';
+  metadata?: any;
 }
 
 export const useRealtimeConversations = () => {

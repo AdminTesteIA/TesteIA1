@@ -35,6 +35,8 @@ interface Message {
   is_from_contact: boolean;
   created_at: string;
   message_type: string;
+  conversation_id: string;
+  metadata?: any;
   delivery_status?: 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
 }
 
@@ -75,7 +77,7 @@ export default function Conversations() {
         (payload) => {
           const newMessage = payload.new as Message;
           if (selectedConversation && newMessage.conversation_id === selectedConversation.id) {
-            setMessages(prev => [...prev, newMessage]);
+            setMessages(prev => [...prev, { ...newMessage, delivery_status: newMessage.metadata?.delivery_status || 'sent' }]);
           }
           fetchConversations(); // Atualizar lista de conversas
         }
@@ -92,7 +94,7 @@ export default function Conversations() {
           if (selectedConversation && updatedMessage.conversation_id === selectedConversation.id) {
             setMessages(prev => 
               prev.map(msg => 
-                msg.id === updatedMessage.id ? updatedMessage : msg
+                msg.id === updatedMessage.id ? { ...updatedMessage, delivery_status: updatedMessage.metadata?.delivery_status } : msg
               )
             );
           }
@@ -149,7 +151,13 @@ export default function Conversations() {
         return;
       }
 
-      setMessages(data || []);
+      // Map the messages and extract delivery_status from metadata
+      const messagesWithStatus = (data || []).map(msg => ({
+        ...msg,
+        delivery_status: msg.metadata?.delivery_status || 'sent'
+      }));
+
+      setMessages(messagesWithStatus);
     } catch (error) {
       console.error('Erro ao carregar mensagens:', error);
       toast.error('Erro ao carregar mensagens');
@@ -162,7 +170,7 @@ export default function Conversations() {
     setSendingMessage(true);
 
     try {
-      // Inserir mensagem no banco com status 'sending'
+      // Inserir mensagem no banco com status 'sending' no metadata
       const { data, error } = await supabase
         .from('messages')
         .insert({
@@ -170,7 +178,7 @@ export default function Conversations() {
           content: newMessage.trim(),
           is_from_contact: false,
           message_type: 'text',
-          delivery_status: 'sending'
+          metadata: { delivery_status: 'sending' }
         })
         .select()
         .single();
@@ -185,14 +193,14 @@ export default function Conversations() {
       setTimeout(async () => {
         await supabase
           .from('messages')
-          .update({ delivery_status: 'sent' })
+          .update({ metadata: { delivery_status: 'sent' } })
           .eq('id', data.id);
 
         // Simular entrega após 2 segundos
         setTimeout(async () => {
           await supabase
             .from('messages')
-            .update({ delivery_status: 'delivered' })
+            .update({ metadata: { delivery_status: 'delivered' } })
             .eq('id', data.id);
         }, 2000);
       }, 1000);
