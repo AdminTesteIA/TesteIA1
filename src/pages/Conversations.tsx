@@ -158,11 +158,17 @@ export default function Conversations() {
         return;
       }
 
-      // Map the messages and extract delivery_status from metadata
-      const messagesWithStatus = (data || []).map(msg => {
-        const metadata = msg.metadata as MessageMetadata;
+      // Map the messages and extract delivery_status from metadata with proper typing
+      const messagesWithStatus: Message[] = (data || []).map(msg => {
+        const metadata = msg.metadata as MessageMetadata | null;
         return {
-          ...msg,
+          id: msg.id,
+          content: msg.content,
+          is_from_contact: msg.is_from_contact,
+          created_at: msg.created_at,
+          message_type: msg.message_type,
+          conversation_id: msg.conversation_id,
+          metadata: metadata,
           delivery_status: metadata?.delivery_status || 'sent'
         };
       });
