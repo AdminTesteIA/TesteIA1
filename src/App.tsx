@@ -10,6 +10,9 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { Layout } from "@/components/Layout";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
+import Agents from "./pages/Agents";
+import CreateAgent from "./pages/CreateAgent";
+import EditAgent from "./pages/EditAgent";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 
@@ -38,7 +41,9 @@ const App = () => {
                   <Layout />
                 </ProtectedRoute>
               }>
-                <Route index element={<div>Agentes em desenvolvimento...</div>} />
+                <Route index element={<Agents />} />
+                <Route path="new" element={<CreateAgent />} />
+                <Route path=":id/edit" element={<EditAgent />} />
               </Route>
               <Route path="/conversations" element={
                 <ProtectedRoute>
