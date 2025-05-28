@@ -13,6 +13,7 @@ import Dashboard from "./pages/Dashboard";
 import Agents from "./pages/Agents";
 import CreateAgent from "./pages/CreateAgent";
 import EditAgent from "./pages/EditAgent";
+import Conversations from "./pages/Conversations";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 
@@ -50,7 +51,7 @@ const App = () => {
                   <Layout />
                 </ProtectedRoute>
               }>
-                <Route index element={<div>Conversas em desenvolvimento...</div>} />
+                <Route index element={<Conversations />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>
