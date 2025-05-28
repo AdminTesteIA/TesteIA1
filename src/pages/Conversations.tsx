@@ -29,6 +29,11 @@ interface Conversation {
   };
 }
 
+interface MessageMetadata {
+  delivery_status?: 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
+  [key: string]: any;
+}
+
 interface Message {
   id: string;
   content: string;
@@ -36,7 +41,7 @@ interface Message {
   created_at: string;
   message_type: string;
   conversation_id: string;
-  metadata?: any;
+  metadata?: MessageMetadata;
   delivery_status?: 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
 }
 
@@ -77,7 +82,8 @@ export default function Conversations() {
         (payload) => {
           const newMessage = payload.new as Message;
           if (selectedConversation && newMessage.conversation_id === selectedConversation.id) {
-            setMessages(prev => [...prev, { ...newMessage, delivery_status: newMessage.metadata?.delivery_status || 'sent' }]);
+            const metadata = newMessage.metadata as MessageMetadata;
+            setMessages(prev => [...prev, { ...newMessage, delivery_status: metadata?.delivery_status || 'sent' }]);
           }
           fetchConversations(); // Atualizar lista de conversas
         }
@@ -92,9 +98,10 @@ export default function Conversations() {
         (payload) => {
           const updatedMessage = payload.new as Message;
           if (selectedConversation && updatedMessage.conversation_id === selectedConversation.id) {
+            const metadata = updatedMessage.metadata as MessageMetadata;
             setMessages(prev => 
               prev.map(msg => 
-                msg.id === updatedMessage.id ? { ...updatedMessage, delivery_status: updatedMessage.metadata?.delivery_status } : msg
+                msg.id === updatedMessage.id ? { ...updatedMessage, delivery_status: metadata?.delivery_status } : msg
               )
             );
           }
@@ -152,10 +159,13 @@ export default function Conversations() {
       }
 
       // Map the messages and extract delivery_status from metadata
-      const messagesWithStatus = (data || []).map(msg => ({
-        ...msg,
-        delivery_status: msg.metadata?.delivery_status || 'sent'
-      }));
+      const messagesWithStatus = (data || []).map(msg => {
+        const metadata = msg.metadata as MessageMetadata;
+        return {
+          ...msg,
+          delivery_status: metadata?.delivery_status || 'sent'
+        };
+      });
 
       setMessages(messagesWithStatus);
     } catch (error) {
