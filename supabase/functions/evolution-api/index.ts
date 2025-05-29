@@ -266,7 +266,7 @@ async function getQRCode(instanceName: string, authHeaders: any) {
     } else if (whatsappData) {
       const { error: updateError } = await supabase
         .from('whatsapp_numbers')
-        .update({ qr_code: result.code })
+        .update({ qr_code: result.base64 || result.code })
         .eq('id', whatsappData.id);
 
       if (updateError) {
