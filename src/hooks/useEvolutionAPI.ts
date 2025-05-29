@@ -29,39 +29,39 @@ export const useEvolutionAPI = () => {
   };
 
   const createInstance = async (instanceName: string, agentId: string, number: string) => {
-    console.log('Creating WhatsApp instance:', instanceName, 'with number:', number);
+    console.log('Creating WhatsApp Evolution Channel instance:', instanceName, 'with number:', number);
     return await callEvolutionAPI('createInstance', { instanceName, agentId, number });
   };
 
-  const configureOpenAI = async (instanceName: string, agentId: string) => {
-    console.log('Configuring OpenAI for instance:', instanceName);
-    return await callEvolutionAPI('configureOpenAI', { instanceName, agentId });
+  const configureWebhook = async (instanceName: string) => {
+    console.log('Configuring webhook for Evolution Channel instance:', instanceName);
+    return await callEvolutionAPI('configureWebhook', { instanceName });
   };
 
   const sendMessage = async (instanceName: string, message: string, to: string) => {
-    console.log('Sending message via WhatsApp:', { instanceName, to });
+    console.log('Sending message via WhatsApp Evolution Channel:', { instanceName, to });
     return await callEvolutionAPI('sendMessage', { instanceName, message, to });
   };
 
   const getQRCode = async (instanceName: string) => {
-    console.log('Getting QR code for instance:', instanceName);
+    console.log('Getting QR code for Evolution Channel instance:', instanceName);
     return await callEvolutionAPI('getQRCode', { instanceName });
   };
 
   const getInstanceStatus = async (instanceName: string) => {
-    console.log('Getting instance status:', instanceName);
+    console.log('Getting Evolution Channel instance status:', instanceName);
     return await callEvolutionAPI('getInstanceStatus', { instanceName });
   };
 
   const syncMessages = async (instanceName: string, agentId: string) => {
-    console.log('Syncing messages for instance:', instanceName);
+    console.log('Syncing messages for Evolution Channel instance:', instanceName);
     return await callEvolutionAPI('syncMessages', { instanceName, agentId });
   };
 
   return {
     loading,
     createInstance,
-    configureOpenAI,
+    configureWebhook,
     sendMessage,
     getQRCode,
     getInstanceStatus,

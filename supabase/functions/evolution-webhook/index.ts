@@ -21,36 +21,38 @@ serve(async (req) => {
 
   try {
     const payload = await req.json();
-    console.log('Webhook payload received:', JSON.stringify(payload, null, 2));
+    console.log('Evolution Channel webhook payload received:', JSON.stringify(payload, null, 2));
 
-    // Verificar se é uma mensagem do WhatsApp
-    if (payload.event === 'messages.upsert' && payload.data?.messages) {
-      const message = payload.data.messages[0];
-      const instanceName = payload.instance;
+    // Processar mensagens do Evolution Channel seguindo a documentação oficial
+    if (payload.numberId && payload.key && payload.message) {
+      const numberId = payload.numberId;
+      const contactNumber = payload.key.remoteJid;
+      const messageContent = payload.message.conversation || 'Mensagem não suportada';
+      const isFromContact = !payload.key.fromMe;
+      const contactName = payload.pushName || null;
 
-      console.log('Processing WhatsApp message:', message);
+      console.log('Processing Evolution Channel message:', {
+        numberId,
+        contactNumber,
+        messageContent,
+        isFromContact,
+        contactName
+      });
 
       // Buscar o número WhatsApp correspondente na base de dados
       const { data: whatsappNumber, error: whatsappError } = await supabase
         .from('whatsapp_numbers')
-        .select('id, agent_id, agent:agents(*)')
-        .eq('phone_number', instanceName)
-        .single();
+        .select('id, agent_id, agents(*)')
+        .eq('phone_number', numberId)
+        .maybeSingle();
 
       if (whatsappError || !whatsappNumber) {
-        console.error('WhatsApp number not found:', whatsappError);
+        console.error('WhatsApp number not found for numberId:', numberId, whatsappError);
         return new Response(JSON.stringify({ error: 'WhatsApp number not registered' }), {
           status: 404,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-
-      // Extrair informações da mensagem
-      const contactNumber = message.key.remoteJid.replace('@s.whatsapp.net', '');
-      const messageContent = message.message?.conversation || 
-                           message.message?.extendedTextMessage?.text || 
-                           'Mensagem não suportada';
-      const isFromContact = !message.key.fromMe;
 
       // Buscar ou criar conversa
       let conversation;
@@ -59,7 +61,7 @@ serve(async (req) => {
         .select('*')
         .eq('whatsapp_number_id', whatsappNumber.id)
         .eq('contact_number', contactNumber)
-        .single();
+        .maybeSingle();
 
       if (existingConversation) {
         conversation = existingConversation;
@@ -76,7 +78,7 @@ serve(async (req) => {
           .insert({
             whatsapp_number_id: whatsappNumber.id,
             contact_number: contactNumber,
-            contact_name: message.pushName || null,
+            contact_name: contactName,
             last_message_at: new Date().toISOString()
           })
           .select()
@@ -99,32 +101,32 @@ serve(async (req) => {
           is_from_contact: isFromContact,
           message_type: 'text',
           metadata: {
-            whatsapp_message_id: message.key.id,
-            timestamp: message.messageTimestamp,
+            whatsapp_message_id: payload.key.id,
+            numberId: payload.numberId,
             delivery_status: 'delivered'
           }
         });
 
       if (messageError) {
-        console.error('Error saving message:', messageError);
+        console.error('Error saving Evolution Channel message:', messageError);
         throw messageError;
       }
 
-      console.log('Message processed successfully');
+      console.log('Evolution Channel message processed successfully');
 
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Para outros tipos de eventos
-    console.log('Event not processed:', payload.event);
-    return new Response(JSON.stringify({ message: 'Event received but not processed' }), {
+    // Para outros tipos de eventos do Evolution Channel
+    console.log('Evolution Channel event received but not processed:', payload);
+    return new Response(JSON.stringify({ message: 'Event received from Evolution Channel' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
-    console.error('Error processing webhook:', error);
+    console.error('Error processing Evolution Channel webhook:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

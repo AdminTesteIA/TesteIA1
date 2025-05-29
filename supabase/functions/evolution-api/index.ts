@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
@@ -33,8 +34,8 @@ serve(async (req) => {
       case 'createInstance':
         return await createInstance(instanceName, agentId, number, authHeaders);
       
-      case 'configureOpenAI':
-        return await configureOpenAI(instanceName, agentId, authHeaders);
+      case 'configureWebhook':
+        return await configureWebhook(instanceName, authHeaders);
       
       case 'sendMessage':
         return await sendMessage(instanceName, message, to, authHeaders);
@@ -64,10 +65,10 @@ serve(async (req) => {
 });
 
 async function createInstance(instanceName: string, agentId: string, number: string, authHeaders: any) {
-  console.log('Creating Evolution API instance:', instanceName, 'for agent:', agentId);
+  console.log('Creating Evolution API v2 instance:', instanceName, 'for agent:', agentId, 'with number:', number);
 
   try {
-    // Buscar dados do agente com consulta mais robusta
+    // Buscar dados do agente
     const { data: agent, error: agentError } = await supabase
       .from('agents')
       .select('*')
@@ -88,7 +89,7 @@ async function createInstance(instanceName: string, agentId: string, number: str
 
     console.log('Agent found:', agent.name);
 
-    // Criar instância na Evolution API v2 seguindo a documentação oficial
+    // Criar instância na Evolution API v2 seguindo EXATAMENTE a documentação oficial
     const instanceData = {
       instanceName: instanceName,
       token: agentId, // Usar agentId como token opcional
@@ -97,7 +98,7 @@ async function createInstance(instanceName: string, agentId: string, number: str
       integration: "EVOLUTION" // Especifica integração com canal universal Evolution
     };
 
-    console.log('Sending instance creation request to Evolution API v2:', instanceData);
+    console.log('Creating Evolution API v2 instance with data:', instanceData);
 
     const createResponse = await fetch(`${EVOLUTION_API_URL}/instance/create`, {
       method: 'POST',
@@ -114,34 +115,18 @@ async function createInstance(instanceName: string, agentId: string, number: str
     const instanceResult = await createResponse.json();
     console.log('Instance created successfully in Evolution API v2:', instanceResult);
 
-    // Configurar webhook para receber mensagens
+    // Configurar webhook para receber mensagens do Evolution Channel
     const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/evolution-webhook`;
-    console.log('Setting webhook to:', webhookUrl);
+    console.log('Configuring webhook for Evolution Channel to:', webhookUrl);
     
-    const webhookResponse = await fetch(`${EVOLUTION_API_URL}/webhook/set/${instanceName}`, {
-      method: 'POST',
-      headers: authHeaders,
-      body: JSON.stringify({
-        url: webhookUrl,
-        webhook_by_events: false,
-        webhook_base64: false,
-        events: [
-          'APPLICATION_STARTUP',
-          'QRCODE_UPDATED',
-          'CONNECTION_UPDATE',
-          'MESSAGES_UPSERT',
-          'MESSAGES_UPDATE'
-        ]
-      })
-    });
-
-    if (!webhookResponse.ok) {
-      console.error('Error setting webhook:', await webhookResponse.text());
-    } else {
-      console.log('Webhook configured successfully');
+    try {
+      await configureWebhook(instanceName, authHeaders);
+      console.log('Webhook configured successfully for Evolution Channel');
+    } catch (webhookError) {
+      console.error('Error configuring webhook (continuing anyway):', webhookError);
     }
 
-    // Salvar ou atualizar número WhatsApp na base de dados
+    // Salvar número WhatsApp na base de dados
     const { error: whatsappError } = await supabase
       .from('whatsapp_numbers')
       .upsert({
@@ -157,7 +142,11 @@ async function createInstance(instanceName: string, agentId: string, number: str
       console.log('WhatsApp number saved successfully');
     }
 
-    return new Response(JSON.stringify(instanceResult), {
+    return new Response(JSON.stringify({
+      success: true,
+      instanceResult,
+      message: 'Instance created successfully. Evolution Channel integration ready.'
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
@@ -167,69 +156,45 @@ async function createInstance(instanceName: string, agentId: string, number: str
   }
 }
 
-async function configureOpenAI(instanceName: string, agentId: string, authHeaders: any) {
-  console.log('Configuring OpenAI for instance:', instanceName);
+async function configureWebhook(instanceName: string, authHeaders: any) {
+  console.log('Configuring webhook for Evolution Channel instance:', instanceName);
 
-  try {
-    // Buscar dados do agente
-    const { data: agent, error: agentError } = await supabase
-      .from('agents')
-      .select('*')
-      .eq('id', agentId)
-      .maybeSingle();
+  const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/evolution-webhook`;
+  
+  // Configuração específica para Evolution Channel
+  const webhookConfig = {
+    webhook: webhookUrl,
+    webhook_by_events: false,
+    webhook_base64: false,
+    events: [
+      'APPLICATION_STARTUP',
+      'QRCODE_UPDATED', 
+      'CONNECTION_UPDATE',
+      'MESSAGES_UPSERT',
+      'MESSAGES_UPDATE'
+    ]
+  };
 
-    if (agentError) {
-      console.error('Agent query error:', agentError);
-      throw new Error(`Database error: ${agentError.message}`);
-    }
+  console.log('Setting Evolution Channel webhook with config:', webhookConfig);
 
-    if (!agent) {
-      throw new Error(`Agent not found with ID: ${agentId}`);
-    }
+  const response = await fetch(`${EVOLUTION_API_URL}/webhook/set/${instanceName}`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify(webhookConfig)
+  });
 
-    if (!agent.openai_api_key) {
-      throw new Error('OpenAI API key not configured for this agent');
-    }
-
-    // Configurar OpenAI na Evolution API v2
-    const openaiConfig = {
-      openaiApiKey: agent.openai_api_key,
-      model: 'gpt-4o-mini',
-      systemMessages: [agent.base_prompt],
-      assistantMessages: [],
-      userMessages: [],
-      maxTokens: 1000,
-      temperature: 0.7,
-      topP: 1,
-      n: 1,
-      stop: null,
-      presencePenalty: 0,
-      frequencyPenalty: 0
-    };
-
-    const response = await fetch(`${EVOLUTION_API_URL}/chat/whatsappDefault/${instanceName}`, {
-      method: 'POST',
-      headers: authHeaders,
-      body: JSON.stringify(openaiConfig)
-    });
-
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error('Error configuring OpenAI:', errorData);
-      throw new Error(`Failed to configure OpenAI: ${errorData}`);
-    }
-
-    const result = await response.json();
-    console.log('OpenAI configured successfully:', result);
-
-    return new Response(JSON.stringify(result), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-
-  } catch (error) {
-    console.error('Error in configureOpenAI:', error);
-    throw error;
+  if (!response.ok) {
+    const errorData = await response.text();
+    console.error('Error setting webhook:', errorData);
+    throw new Error(`Failed to set webhook: ${errorData}`);
   }
+
+  const result = await response.json();
+  console.log('Webhook configured successfully:', result);
+
+  return new Response(JSON.stringify(result), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
 }
 
 async function sendMessage(instanceName: string, message: string, to: string, authHeaders: any) {
