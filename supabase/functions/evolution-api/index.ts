@@ -250,15 +250,28 @@ async function getQRCode(instanceName: string, authHeaders: any) {
   
   // Atualizar QR code na base de dados se disponível
   if (result.code) {
-    const { error: updateError } = await supabase
+    // Buscar o número WhatsApp relacionado a esta instância pelo instanceName
+    const { data: whatsappData, error: findError } = await supabase
       .from('whatsapp_numbers')
-      .update({ qr_code: result.code })
-      .eq('phone_number', instanceName);
+      .select('*')
+      .eq('phone_number', instanceName)
+      .maybeSingle();
 
-    if (updateError) {
-      console.error('Error updating QR code in database:', updateError);
+    if (findError) {
+      console.error('Error finding WhatsApp number:', findError);
+    } else if (whatsappData) {
+      const { error: updateError } = await supabase
+        .from('whatsapp_numbers')
+        .update({ qr_code: result.code })
+        .eq('id', whatsappData.id);
+
+      if (updateError) {
+        console.error('Error updating QR code in database:', updateError);
+      } else {
+        console.log('QR code updated in database successfully');
+      }
     } else {
-      console.log('QR code updated in database successfully');
+      console.log('WhatsApp number not found for instance:', instanceName);
     }
   }
 
