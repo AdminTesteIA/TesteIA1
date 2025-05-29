@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { MessageSquare, Send, Phone, User, Search, RefreshCw } from 'lucide-react';
+import { MessageSquare, Send, Phone, User, Search, RefreshCw, Settings } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -58,6 +58,7 @@ export default function Conversations() {
   const [sendingMessage, setSendingMessage] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [connectedWhatsAppNumbers, setConnectedWhatsAppNumbers] = useState<any[]>([]);
+  const [showSyncPanel, setShowSyncPanel] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -332,28 +333,54 @@ export default function Conversations() {
     <div className="space-y-6">
       <RealtimeNotifications onNewMessage={handleNewMessageNotification} />
       
-      {/* Header */}
-      <div className="flex justify-between items-start">
+      {/* Header com ações */}
+      <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Conversas</h1>
           <p className="text-gray-600 mt-1">Gerencie as conversas do WhatsApp dos seus agentes</p>
         </div>
 
-        {/* Sync Cards for Connected WhatsApp Numbers */}
-        {connectedWhatsAppNumbers.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-2xl">
-            {connectedWhatsAppNumbers.map((whatsappNumber) => (
-              <WhatsAppSync
-                key={whatsappNumber.id}
-                agentId={whatsappNumber.agent.id}
-                whatsappNumber={whatsappNumber}
-                onSyncComplete={handleSyncComplete}
-              />
-            ))}
-          </div>
-        )}
+        <div className="flex items-center space-x-3">
+          {connectedWhatsAppNumbers.length > 0 && (
+            <Button
+              onClick={() => setShowSyncPanel(!showSyncPanel)}
+              variant="outline"
+              className="flex items-center space-x-2"
+            >
+              <Settings className="h-4 w-4" />
+              <span>Sincronização</span>
+            </Button>
+          )}
+          <Button 
+            onClick={fetchConversations}
+            variant="ghost"
+            size="sm"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Atualizar
+          </Button>
+        </div>
       </div>
 
+      {/* Painel de sincronização (colapsável) */}
+      {showSyncPanel && connectedWhatsAppNumbers.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg border">
+          <div className="md:col-span-2 lg:col-span-3 mb-2">
+            <h3 className="text-lg font-semibold text-gray-900">Sincronização WhatsApp</h3>
+            <p className="text-sm text-gray-600">Sincronize dados dos seus números conectados</p>
+          </div>
+          {connectedWhatsAppNumbers.map((whatsappNumber) => (
+            <WhatsAppSync
+              key={whatsappNumber.id}
+              agentId={whatsappNumber.agent.id}
+              whatsappNumber={whatsappNumber}
+              onSyncComplete={handleSyncComplete}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Mensagem quando não há WhatsApp conectado */}
       {connectedWhatsAppNumbers.length === 0 && (
         <Card>
           <CardContent className="text-center py-8">
@@ -366,215 +393,211 @@ export default function Conversations() {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-300px)]">
-        {/* Lista de Conversas */}
-        <div className="lg:col-span-1">
-          <Card className="h-full">
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <MessageSquare className="h-5 w-5 text-blue-600" />
-                  <span>Conversas</span>
-                </div>
-                <div className="flex items-center space-x-2">
+      {/* Interface principal de conversas */}
+      {connectedWhatsAppNumbers.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-300px)]">
+          {/* Lista de Conversas */}
+          <div className="lg:col-span-1">
+            <Card className="h-full">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <MessageSquare className="h-5 w-5 text-blue-600" />
+                    <span>Conversas</span>
+                  </div>
                   <Badge variant="secondary">{filteredConversations.length}</Badge>
-                  <Button 
-                    onClick={fetchConversations}
-                    variant="ghost" 
-                    size="sm"
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardTitle>
-              <div className="relative">
-                <Search className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <Input
-                  placeholder="Buscar conversas..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="max-h-[500px] overflow-y-auto">
-                {filteredConversations.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <MessageSquare className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                    <p>Nenhuma conversa encontrada</p>
-                    <p className="text-sm">
-                      {conversations.length === 0 
-                        ? 'Sincronize os dados do WhatsApp para ver as conversas' 
-                        : 'Tente ajustar os filtros de busca'
-                      }
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    {filteredConversations.map((conversation) => (
-                      <div
-                        key={conversation.id}
-                        className={`p-4 border-b cursor-pointer hover:bg-gray-50 transition-colors ${
-                          selectedConversation?.id === conversation.id ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
-                        }`}
-                        onClick={() => setSelectedConversation(conversation)}
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center space-x-2">
-                            <User className="h-4 w-4 text-gray-400" />
-                            <span className="font-medium">
-                              {conversation.contact_name || conversation.contact_number}
-                            </span>
-                          </div>
-                          <span className="text-xs text-gray-500">
-                            {formatDistanceToNow(new Date(conversation.last_message_at), { 
-                              addSuffix: true, 
-                              locale: ptBR 
-                            })}
-                          </span>
-                        </div>
-                        <div className="flex items-center space-x-2 text-sm text-gray-600">
-                          <Phone className="h-3 w-3" />
-                          <span>{conversation.contact_number}</span>
-                        </div>
-                        <div className="mt-1 flex items-center justify-between">
-                          <Badge variant="outline" className="text-xs">
-                            {conversation.whatsapp_number.agent.name}
-                          </Badge>
-                          <Badge 
-                            variant={conversation.whatsapp_number.is_connected ? "default" : "secondary"}
-                            className="text-xs"
-                          >
-                            {conversation.whatsapp_number.is_connected ? "Conectado" : "Desconectado"}
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Área de Chat */}
-        <div className="lg:col-span-2">
-          {selectedConversation ? (
-            <Card className="h-full flex flex-col">
-              <CardHeader className="border-b">
-                <div className="flex items-center space-x-3">
-                  <User className="h-8 w-8 p-2 bg-blue-100 text-blue-600 rounded-full" />
-                  <div>
-                    <h3 className="font-semibold">
-                      {selectedConversation.contact_name || selectedConversation.contact_number}
-                    </h3>
-                    <div className="flex items-center space-x-4 text-sm text-gray-500">
-                      <div className="flex items-center space-x-1">
-                        <Phone className="h-3 w-3" />
-                        <span>{selectedConversation.contact_number}</span>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <MessageSquare className="h-3 w-3" />
-                        <span>via {selectedConversation.whatsapp_number.agent.name}</span>
-                      </div>
-                      <Badge 
-                        variant={selectedConversation.whatsapp_number.is_connected ? "default" : "secondary"}
-                        className="text-xs"
-                      >
-                        {selectedConversation.whatsapp_number.is_connected ? "Conectado" : "Desconectado"}
-                      </Badge>
-                    </div>
-                  </div>
+                </CardTitle>
+                <div className="relative">
+                  <Search className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <Input
+                    placeholder="Buscar conversas..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
                 </div>
               </CardHeader>
-
-              <CardContent className="flex-1 p-4 overflow-hidden flex flex-col">
-                {/* Mensagens */}
-                <div className="flex-1 overflow-y-auto space-y-4 mb-4">
-                  {messages.length === 0 ? (
+              <CardContent className="p-0">
+                <div className="max-h-[500px] overflow-y-auto">
+                  {filteredConversations.length === 0 ? (
                     <div className="text-center py-8 text-gray-500">
                       <MessageSquare className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                      <p>Nenhuma mensagem ainda</p>
+                      <p className="font-medium">Nenhuma conversa encontrada</p>
+                      <p className="text-sm mt-2">
+                        {conversations.length === 0 
+                          ? 'Use o painel de sincronização para buscar conversas' 
+                          : 'Tente ajustar os filtros de busca'
+                        }
+                      </p>
                     </div>
                   ) : (
-                    messages.map((message) => (
-                      <div
-                        key={message.id}
-                        className={`flex ${message.is_from_contact ? 'justify-start' : 'justify-end'}`}
-                      >
+                    <div className="space-y-1">
+                      {filteredConversations.map((conversation) => (
                         <div
-                          className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                            message.is_from_contact
-                              ? 'bg-gray-100 text-gray-900'
-                              : 'bg-blue-500 text-white'
+                          key={conversation.id}
+                          className={`p-4 border-b cursor-pointer hover:bg-gray-50 transition-colors ${
+                            selectedConversation?.id === conversation.id ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
                           }`}
+                          onClick={() => setSelectedConversation(conversation)}
                         >
-                          <p className="text-sm">{message.content}</p>
-                          <MessageDeliveryStatus
-                            status={message.delivery_status}
-                            timestamp={message.created_at}
-                            isFromContact={message.is_from_contact}
-                          />
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center space-x-2 flex-1 min-w-0">
+                              <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                              <span className="font-medium truncate">
+                                {conversation.contact_name || conversation.contact_number}
+                              </span>
+                            </div>
+                            <span className="text-xs text-gray-500 flex-shrink-0 ml-2">
+                              {formatDistanceToNow(new Date(conversation.last_message_at), { 
+                                addSuffix: true, 
+                                locale: ptBR 
+                              })}
+                            </span>
+                          </div>
+                          <div className="flex items-center space-x-2 text-sm text-gray-600 mb-2">
+                            <Phone className="h-3 w-3" />
+                            <span className="truncate">{conversation.contact_number}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <Badge variant="outline" className="text-xs">
+                              {conversation.whatsapp_number.agent.name}
+                            </Badge>
+                            <Badge 
+                              variant={conversation.whatsapp_number.is_connected ? "default" : "secondary"}
+                              className="text-xs"
+                            >
+                              {conversation.whatsapp_number.is_connected ? "Conectado" : "Desconectado"}
+                            </Badge>
+                          </div>
                         </div>
-                      </div>
-                    ))
+                      ))}
+                    </div>
                   )}
                 </div>
-
-                {/* Input de Nova Mensagem */}
-                <div className="flex space-x-2">
-                  <Input
-                    placeholder={
-                      selectedConversation.whatsapp_number.is_connected 
-                        ? "Digite sua mensagem..." 
-                        : "WhatsApp desconectado"
-                    }
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        sendMessage();
-                      }
-                    }}
-                    disabled={sendingMessage || !selectedConversation.whatsapp_number.is_connected}
-                  />
-                  <Button
-                    onClick={sendMessage}
-                    disabled={
-                      !newMessage.trim() || 
-                      sendingMessage || 
-                      !selectedConversation.whatsapp_number.is_connected
-                    }
-                    className="flex items-center space-x-2"
-                  >
-                    {sendingMessage ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    ) : (
-                      <Send className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-
-                {!selectedConversation.whatsapp_number.is_connected && (
-                  <p className="text-xs text-amber-600 mt-2">
-                    WhatsApp desconectado. Reconecte na seção de agentes para enviar mensagens.
-                  </p>
-                )}
               </CardContent>
             </Card>
-          ) : (
-            <Card className="h-full flex items-center justify-center">
-              <div className="text-center text-gray-500">
-                <MessageSquare className="h-16 w-16 mx-auto mb-4 text-gray-300" />
-                <h3 className="text-lg font-semibold mb-2">Selecione uma conversa</h3>
-                <p>Escolha uma conversa na lista para visualizar as mensagens</p>
-              </div>
-            </Card>
-          )}
+          </div>
+
+          {/* Área de Chat */}
+          <div className="lg:col-span-2">
+            {selectedConversation ? (
+              <Card className="h-full flex flex-col">
+                <CardHeader className="border-b">
+                  <div className="flex items-center space-x-3">
+                    <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
+                      <User className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold truncate">
+                        {selectedConversation.contact_name || selectedConversation.contact_number}
+                      </h3>
+                      <div className="flex items-center space-x-4 text-sm text-gray-500">
+                        <div className="flex items-center space-x-1">
+                          <Phone className="h-3 w-3" />
+                          <span>{selectedConversation.contact_number}</span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <MessageSquare className="h-3 w-3" />
+                          <span>via {selectedConversation.whatsapp_number.agent.name}</span>
+                        </div>
+                        <Badge 
+                          variant={selectedConversation.whatsapp_number.is_connected ? "default" : "secondary"}
+                          className="text-xs"
+                        >
+                          {selectedConversation.whatsapp_number.is_connected ? "Conectado" : "Desconectado"}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                </CardHeader>
+
+                <CardContent className="flex-1 p-4 overflow-hidden flex flex-col">
+                  {/* Mensagens */}
+                  <div className="flex-1 overflow-y-auto space-y-4 mb-4">
+                    {messages.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500">
+                        <MessageSquare className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                        <p>Nenhuma mensagem ainda</p>
+                      </div>
+                    ) : (
+                      messages.map((message) => (
+                        <div
+                          key={message.id}
+                          className={`flex ${message.is_from_contact ? 'justify-start' : 'justify-end'}`}
+                        >
+                          <div
+                            className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                              message.is_from_contact
+                                ? 'bg-gray-100 text-gray-900'
+                                : 'bg-blue-500 text-white'
+                            }`}
+                          >
+                            <p className="text-sm">{message.content}</p>
+                            <MessageDeliveryStatus
+                              status={message.delivery_status}
+                              timestamp={message.created_at}
+                              isFromContact={message.is_from_contact}
+                            />
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Input de Nova Mensagem */}
+                  <div className="flex space-x-2">
+                    <Input
+                      placeholder={
+                        selectedConversation.whatsapp_number.is_connected 
+                          ? "Digite sua mensagem..." 
+                          : "WhatsApp desconectado"
+                      }
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          sendMessage();
+                        }
+                      }}
+                      disabled={sendingMessage || !selectedConversation.whatsapp_number.is_connected}
+                    />
+                    <Button
+                      onClick={sendMessage}
+                      disabled={
+                        !newMessage.trim() || 
+                        sendingMessage || 
+                        !selectedConversation.whatsapp_number.is_connected
+                      }
+                      className="flex items-center space-x-2"
+                    >
+                      {sendingMessage ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      ) : (
+                        <Send className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+
+                  {!selectedConversation.whatsapp_number.is_connected && (
+                    <p className="text-xs text-amber-600 mt-2">
+                      WhatsApp desconectado. Reconecte na seção de agentes para enviar mensagens.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="h-full flex items-center justify-center">
+                <div className="text-center text-gray-500">
+                  <MessageSquare className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+                  <h3 className="text-lg font-semibold mb-2">Selecione uma conversa</h3>
+                  <p>Escolha uma conversa na lista para visualizar as mensagens</p>
+                </div>
+              </Card>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
