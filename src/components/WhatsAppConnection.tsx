@@ -110,8 +110,13 @@ export const WhatsAppConnection = ({
       const result = await getInstanceStatus(instanceName);
       console.log('Status result:', result);
       
-      if (result[0]?.instance?.state) {
-        const connected = result[0].instance.state === 'open';
+      // Verificar tanto connectionStatus quanto instance.state para compatibilidade
+      if (result[0]) {
+        const connectionStatus = result[0].connectionStatus || result[0].instance?.state;
+        const connected = connectionStatus === 'open';
+        
+        console.log('Connection status from API:', connectionStatus, 'Connected:', connected);
+        
         setIsConnected(connected);
         
         if (connected) {

@@ -303,9 +303,12 @@ async function getInstanceStatus(instanceName: string, authHeaders: any) {
   console.log('Instance status response from Evolution API:', result);
   
   // Atualizar status de conexão no banco de dados
-  if (result[0]?.instance?.state) {
-    const isConnected = result[0].instance.state === 'open';
-    console.log('Updating connection status in database:', { instanceName, isConnected });
+  if (result[0]) {
+    // Verificar tanto connectionStatus quanto instance.state
+    const connectionStatus = result[0].connectionStatus || result[0].instance?.state;
+    const isConnected = connectionStatus === 'open';
+    
+    console.log('Updating connection status in database:', { instanceName, isConnected, connectionStatus });
     
     const { error: updateError } = await supabase
       .from('whatsapp_numbers')
