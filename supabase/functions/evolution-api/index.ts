@@ -97,6 +97,7 @@ async function createInstance(instanceName: string, agentId: string, number: str
       token: agentId, // Usar agentId como token
       qrcode: true,
       number: number,
+      connectionStatus: close,
       integration: "WHATSAPP-BAILEYS",
       rejectCall: true,
       msgCall: "Não atendemos ligações.",
