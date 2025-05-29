@@ -64,7 +64,7 @@ serve(async (req) => {
 });
 
 async function createInstance(instanceName: string, agentId: string, number: string, authHeaders: any) {
-  console.log('Creating Evolution API v2 instance:', instanceName, 'for agent:', agentId, 'with number:', number);
+  console.log('Creating Evolution API instance:', instanceName, 'for agent:', agentId, 'with number:', number);
 
   try {
     // Buscar dados do agente
@@ -88,16 +88,38 @@ async function createInstance(instanceName: string, agentId: string, number: str
 
     console.log('Agent found:', agent.name);
 
-    // Criar instância na Evolution API v2 seguindo EXATAMENTE a documentação oficial
+    // Configurar webhook URL
+    const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/evolution-webhook`;
+
+    // Criar instância na Evolution API usando a configuração correta
     const instanceData = {
       instanceName: instanceName,
-      token: agentId, // Usar agentId como token opcional
-      number: number, // Number ID da instância
-      qrcode: false, // Sempre false para integração Evolution
-      integration: "EVOLUTION" // Especifica integração com canal universal Evolution
+      token: agentId, // Usar agentId como token
+      qrcode: true,
+      number: number,
+      integration: "WHATSAPP-BAILEYS",
+      rejectCall: true,
+      msgCall: "Não atendemos ligações.",
+      groupsIgnore: true,
+      alwaysOnline: true,
+      readMessages: true,
+      readStatus: true,
+      syncFullHistory: true,
+      webhook: {
+        url: webhookUrl,
+        byEvents: true,
+        base64: true,
+        events: [
+          "APPLICATION_STARTUP",
+          "QRCODE_UPDATED", 
+          "CONNECTION_UPDATE",
+          "MESSAGES_UPSERT",
+          "MESSAGES_UPDATE"
+        ]
+      }
     };
 
-    console.log('Creating Evolution API v2 instance with data:', instanceData);
+    console.log('Creating Evolution API instance with data:', instanceData);
 
     const createResponse = await fetch(`${EVOLUTION_API_URL}/instance/create`, {
       method: 'POST',
@@ -112,10 +134,9 @@ async function createInstance(instanceName: string, agentId: string, number: str
     }
 
     const instanceResult = await createResponse.json();
-    console.log('Instance created successfully in Evolution API v2:', instanceResult);
+    console.log('Instance created successfully in Evolution API:', instanceResult);
 
     // Salvar número WhatsApp na base de dados - SEMPRE como desconectado inicialmente
-    // Independente do status retornado pela Evolution API
     const { error: whatsappError } = await supabase
       .from('whatsapp_numbers')
       .upsert({
@@ -132,21 +153,10 @@ async function createInstance(instanceName: string, agentId: string, number: str
       console.log('WhatsApp number saved successfully as disconnected');
     }
 
-    // Configurar webhook para receber mensagens do Evolution Channel
-    const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/evolution-webhook`;
-    console.log('Configuring webhook for Evolution Channel to:', webhookUrl);
-    
-    try {
-      await configureWebhook(instanceName, authHeaders);
-      console.log('Webhook configured successfully for Evolution Channel');
-    } catch (webhookError) {
-      console.error('Error configuring webhook (continuing anyway):', webhookError);
-    }
-
     return new Response(JSON.stringify({
       success: true,
       instanceResult,
-      message: 'Instance created successfully. Evolution Channel integration ready. Status: Disconnected (scan QR to connect).'
+      message: 'Instance created successfully. WhatsApp integration ready. Status: Disconnected (scan QR to connect).'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -158,15 +168,14 @@ async function createInstance(instanceName: string, agentId: string, number: str
 }
 
 async function configureWebhook(instanceName: string, authHeaders: any) {
-  console.log('Configuring webhook for Evolution Channel instance:', instanceName);
+  console.log('Configuring webhook for instance:', instanceName);
 
   const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/evolution-webhook`;
   
-  // Configuração específica para Evolution Channel
   const webhookConfig = {
-    webhook: webhookUrl,
-    webhook_by_events: false,
-    webhook_base64: false,
+    url: webhookUrl,
+    byEvents: true,
+    base64: true,
     events: [
       'APPLICATION_STARTUP',
       'QRCODE_UPDATED', 
@@ -176,7 +185,7 @@ async function configureWebhook(instanceName: string, authHeaders: any) {
     ]
   };
 
-  console.log('Setting Evolution Channel webhook with config:', webhookConfig);
+  console.log('Setting webhook with config:', webhookConfig);
 
   const response = await fetch(`${EVOLUTION_API_URL}/webhook/set/${instanceName}`, {
     method: 'POST',
