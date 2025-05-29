@@ -205,21 +205,46 @@ export default function Conversations() {
         return;
       }
 
-      // Simular envio para WhatsApp e atualizar status
-      setTimeout(async () => {
+      // Enviar mensagem via Evolution API
+      try {
+        const { data: evolutionResult, error: evolutionError } = await supabase.functions.invoke('evolution-api', {
+          body: {
+            action: 'sendMessage',
+            instanceName: selectedConversation.whatsapp_number.phone_number,
+            message: newMessage.trim(),
+            to: selectedConversation.contact_number
+          }
+        });
+
+        if (evolutionError) {
+          console.error('Erro ao enviar via Evolution API:', evolutionError);
+          // Atualizar status para falha
+          await supabase
+            .from('messages')
+            .update({ metadata: { delivery_status: 'failed' } })
+            .eq('id', data.id);
+          toast.error('Erro ao enviar mensagem via WhatsApp');
+          return;
+        }
+
+        // Atualizar status para enviado
         await supabase
           .from('messages')
           .update({ metadata: { delivery_status: 'sent' } })
           .eq('id', data.id);
 
-        // Simular entrega após 2 segundos
-        setTimeout(async () => {
-          await supabase
-            .from('messages')
-            .update({ metadata: { delivery_status: 'delivered' } })
-            .eq('id', data.id);
-        }, 2000);
-      }, 1000);
+        console.log('Mensagem enviada via Evolution API:', evolutionResult);
+
+      } catch (evolutionError) {
+        console.error('Erro na Evolution API:', evolutionError);
+        // Atualizar status para falha
+        await supabase
+          .from('messages')
+          .update({ metadata: { delivery_status: 'failed' } })
+          .eq('id', data.id);
+        toast.error('Erro ao enviar mensagem via WhatsApp');
+        return;
+      }
 
       // Atualizar última mensagem da conversa
       await supabase
