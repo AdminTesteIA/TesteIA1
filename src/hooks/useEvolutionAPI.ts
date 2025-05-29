@@ -53,6 +53,11 @@ export const useEvolutionAPI = () => {
     return await callEvolutionAPI('getInstanceStatus', { instanceName });
   };
 
+  const logoutInstance = async (instanceName: string) => {
+    console.log('Logging out Evolution Channel instance:', instanceName);
+    return await callEvolutionAPI('logoutInstance', { instanceName });
+  };
+
   const syncMessages = async (instanceName: string, agentId: string) => {
     console.log('Syncing messages for Evolution Channel instance:', instanceName);
     return await callEvolutionAPI('syncMessages', { instanceName, agentId });
@@ -65,6 +70,7 @@ export const useEvolutionAPI = () => {
     sendMessage,
     getQRCode,
     getInstanceStatus,
+    logoutInstance,
     syncMessages
   };
 };

@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
@@ -45,6 +44,9 @@ serve(async (req) => {
       
       case 'getInstanceStatus':
         return await getInstanceStatus(instanceName, authHeaders);
+      
+      case 'logoutInstance':
+        return await logoutInstance(instanceName, authHeaders);
       
       case 'syncMessages':
         return await syncMessages(instanceName, agentId, authHeaders);
@@ -324,6 +326,43 @@ async function getInstanceStatus(instanceName: string, authHeaders: any) {
     } else {
       console.log('Connection status updated successfully in database');
     }
+  }
+
+  return new Response(JSON.stringify(result), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+async function logoutInstance(instanceName: string, authHeaders: any) {
+  console.log('Logging out instance:', instanceName);
+
+  const response = await fetch(`${EVOLUTION_API_URL}/instance/logout/${instanceName}`, {
+    method: 'DELETE',
+    headers: authHeaders
+  });
+
+  if (!response.ok) {
+    const errorData = await response.text();
+    console.error('Error logging out instance:', errorData);
+    throw new Error(`Failed to logout instance: ${errorData}`);
+  }
+
+  const result = await response.json();
+  console.log('Instance logged out successfully:', result);
+  
+  // Atualizar status no banco de dados para desconectado
+  const { error: updateError } = await supabase
+    .from('whatsapp_numbers')
+    .update({ 
+      is_connected: false,
+      qr_code: null // Limpar QR code quando desconectar
+    })
+    .eq('phone_number', instanceName);
+
+  if (updateError) {
+    console.error('Error updating disconnection status in database:', updateError);
+  } else {
+    console.log('Instance marked as disconnected in database');
   }
 
   return new Response(JSON.stringify(result), {

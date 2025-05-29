@@ -1,11 +1,9 @@
-
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { QrCode, Smartphone, Loader2, CheckCircle, XCircle } from 'lucide-react';
+import { QrCode, Smartphone, Loader2, CheckCircle, XCircle, LogOut } from 'lucide-react';
 import { useEvolutionAPI } from '@/hooks/useEvolutionAPI';
 import { toast } from 'sonner';
 
@@ -38,7 +36,8 @@ export const WhatsAppConnection = ({
     loading, 
     createInstance, 
     getQRCode, 
-    getInstanceStatus 
+    getInstanceStatus,
+    logoutInstance 
   } = useEvolutionAPI();
 
   useEffect(() => {
@@ -136,6 +135,29 @@ export const WhatsAppConnection = ({
     } catch (error) {
       console.error('Error checking status:', error);
       toast.error('Erro ao verificar status');
+    }
+  };
+
+  const handleLogoutInstance = async () => {
+    if (!instanceName) return;
+
+    if (!confirm('Tem certeza que deseja desconectar a instância do WhatsApp?')) return;
+
+    try {
+      await logoutInstance(instanceName);
+      
+      // Atualizar estado local
+      setIsConnected(false);
+      setQrCode('');
+      
+      toast.success('Instância desconectada com sucesso!');
+      
+      if (onConnectionUpdate) {
+        onConnectionUpdate();
+      }
+    } catch (error) {
+      console.error('Error logging out instance:', error);
+      toast.error('Erro ao desconectar instância');
     }
   };
 
@@ -240,6 +262,22 @@ export const WhatsAppConnection = ({
                 )}
                 Verificar Status
               </Button>
+
+              {isConnected && (
+                <Button 
+                  onClick={handleLogoutInstance} 
+                  disabled={loading}
+                  variant="destructive"
+                  size="sm"
+                >
+                  {loading ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <LogOut className="h-4 w-4 mr-2" />
+                  )}
+                  Desconectar
+                </Button>
+              )}
             </div>
 
             {/* Mostrar QR Code automaticamente se disponível e não conectado */}
