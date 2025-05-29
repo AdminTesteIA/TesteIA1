@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { WhatsAppConnection } from '@/components/WhatsAppConnection';
 
 interface Agent {
   id: string;
@@ -45,7 +45,7 @@ export default function EditAgent() {
   const [uploading, setUploading] = useState(false);
   const [agent, setAgent] = useState<Agent | null>(null);
   const [knowledgeFiles, setKnowledgeFiles] = useState<KnowledgeFile[]>([]);
-  const [whatsappNumbers, setWhatsappNumbers] = useState<WhatsAppNumber[]>([]);
+  const [whatsappNumber, setWhatsappNumber] = useState<WhatsAppNumber | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     base_prompt: '',
@@ -58,7 +58,7 @@ export default function EditAgent() {
     if (id) {
       fetchAgent();
       fetchKnowledgeFiles();
-      fetchWhatsAppNumbers();
+      fetchWhatsAppNumber();
     }
   }, [id, user]);
 
@@ -117,7 +117,7 @@ export default function EditAgent() {
     }
   };
 
-  const fetchWhatsAppNumbers = async () => {
+  const fetchWhatsAppNumber = async () => {
     if (!user || !id) return;
 
     try {
@@ -125,16 +125,16 @@ export default function EditAgent() {
         .from('whatsapp_numbers')
         .select('*')
         .eq('agent_id', id)
-        .order('created_at', { ascending: false });
+        .maybeSingle();
 
       if (error) {
-        console.error('Erro ao carregar números WhatsApp:', error);
+        console.error('Erro ao carregar número WhatsApp:', error);
         return;
       }
 
-      setWhatsappNumbers(data || []);
+      setWhatsappNumber(data);
     } catch (error) {
-      console.error('Erro ao carregar números WhatsApp:', error);
+      console.error('Erro ao carregar número WhatsApp:', error);
     }
   };
 
@@ -278,7 +278,7 @@ export default function EditAgent() {
       }
 
       toast.success('Número WhatsApp adicionado com sucesso!');
-      fetchWhatsAppNumbers();
+      fetchWhatsAppNumber();
     } catch (error) {
       console.error('Erro ao adicionar número:', error);
       toast.error('Erro ao adicionar número WhatsApp');
@@ -302,7 +302,7 @@ export default function EditAgent() {
       }
 
       toast.success('QR Code gerado! (Simulação)');
-      fetchWhatsAppNumbers();
+      fetchWhatsAppNumber();
     } catch (error) {
       console.error('Erro ao gerar QR Code:', error);
       toast.error('Erro ao gerar QR Code');
@@ -513,76 +513,11 @@ export default function EditAgent() {
         </TabsContent>
 
         <TabsContent value="whatsapp">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Smartphone className="h-5 w-5 text-green-600" />
-                  <span>Números WhatsApp</span>
-                </div>
-                <Button
-                  size="sm"
-                  onClick={addWhatsAppNumber}
-                  className="flex items-center space-x-2"
-                >
-                  <Plus className="h-4 w-4" />
-                  <span>Adicionar Número</span>
-                </Button>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {whatsappNumbers.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <Smartphone className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                  <p>Nenhum número WhatsApp conectado</p>
-                  <p className="text-sm">Adicione um número para começar a receber mensagens</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {whatsappNumbers.map((number) => (
-                    <div key={number.id} className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center space-x-3">
-                          <Smartphone className="h-5 w-5 text-green-600" />
-                          <div>
-                            <p className="font-medium">+{number.phone_number}</p>
-                            <p className={`text-sm ${number.is_connected ? 'text-green-600' : 'text-gray-500'}`}>
-                              {number.is_connected ? 'Conectado' : 'Desconectado'}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex space-x-2">
-                          {!number.is_connected && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => generateQRCode(number.id)}
-                              className="flex items-center space-x-2"
-                            >
-                              <QrCode className="h-4 w-4" />
-                              <span>Gerar QR</span>
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                      
-                      {number.qr_code && !number.is_connected && (
-                        <div className="bg-gray-50 p-4 rounded-lg text-center">
-                          <QrCode className="h-16 w-16 mx-auto mb-2 text-gray-400" />
-                          <p className="text-sm text-gray-600">
-                            QR Code gerado! (Em produção, aqui seria exibido o QR Code real)
-                          </p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            Use o WhatsApp Web para escanear o código
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <WhatsAppConnection 
+            agent={agent}
+            whatsappNumber={whatsappNumber}
+            onConnectionUpdate={fetchWhatsAppNumber}
+          />
         </TabsContent>
       </Tabs>
     </div>
