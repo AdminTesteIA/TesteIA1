@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
@@ -10,7 +9,7 @@ const corsHeaders = {
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
-  Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 );
 
 const EVOLUTION_API_URL = Deno.env.get('EVOLUTION_API_URL') ?? '';
@@ -65,143 +64,172 @@ serve(async (req) => {
 });
 
 async function createInstance(instanceName: string, agentId: string, number: string, authHeaders: any) {
-  console.log('Creating Evolution API instance:', instanceName);
+  console.log('Creating Evolution API instance:', instanceName, 'for agent:', agentId);
 
-  // Buscar dados do agente
-  const { data: agent, error: agentError } = await supabase
-    .from('agents')
-    .select('*')
-    .eq('id', agentId)
-    .single();
+  try {
+    // Buscar dados do agente com consulta mais robusta
+    const { data: agent, error: agentError } = await supabase
+      .from('agents')
+      .select('*')
+      .eq('id', agentId)
+      .maybeSingle();
 
-  if (agentError || !agent) {
-    console.error('Agent error:', agentError);
-    throw new Error('Agent not found');
-  }
+    console.log('Agent query result:', { agent, agentError });
 
-  // Criar instância na Evolution API seguindo a documentação oficial
-  const instanceData = {
-    instanceName: instanceName,
-    number: number, // Number ID da instância
-    qrcode: false, // Sempre false para integração Evolution
-    integration: "EVOLUTION" // Especifica integração com canal universal Evolution
-  };
+    if (agentError) {
+      console.error('Agent query error:', agentError);
+      throw new Error(`Database error: ${agentError.message}`);
+    }
 
-  console.log('Sending instance creation request:', instanceData);
+    if (!agent) {
+      console.error('Agent not found with ID:', agentId);
+      throw new Error(`Agent not found with ID: ${agentId}`);
+    }
 
-  const createResponse = await fetch(`${EVOLUTION_API_URL}/instance/create`, {
-    method: 'POST',
-    headers: authHeaders,
-    body: JSON.stringify(instanceData)
-  });
+    console.log('Agent found:', agent.name);
 
-  if (!createResponse.ok) {
-    const errorData = await createResponse.text();
-    console.error('Error creating instance:', errorData);
-    throw new Error(`Failed to create instance: ${errorData}`);
-  }
+    // Criar instância na Evolution API v2 seguindo a documentação oficial
+    const instanceData = {
+      instanceName: instanceName,
+      token: agentId, // Usar agentId como token opcional
+      number: number, // Number ID da instância
+      qrcode: false, // Sempre false para integração Evolution
+      integration: "EVOLUTION" // Especifica integração com canal universal Evolution
+    };
 
-  const instanceResult = await createResponse.json();
-  console.log('Instance created successfully:', instanceResult);
+    console.log('Sending instance creation request to Evolution API v2:', instanceData);
 
-  // Configurar webhook
-  const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/evolution-webhook`;
-  console.log('Setting webhook to:', webhookUrl);
-  
-  const webhookResponse = await fetch(`${EVOLUTION_API_URL}/webhook/set/${instanceName}`, {
-    method: 'POST',
-    headers: authHeaders,
-    body: JSON.stringify({
-      url: webhookUrl,
-      webhook_by_events: false,
-      webhook_base64: false,
-      events: [
-        'APPLICATION_STARTUP',
-        'QRCODE_UPDATED',
-        'CONNECTION_UPDATE',
-        'MESSAGES_UPSERT',
-        'MESSAGES_UPDATE'
-      ]
-    })
-  });
-
-  if (!webhookResponse.ok) {
-    console.error('Error setting webhook:', await webhookResponse.text());
-  } else {
-    console.log('Webhook configured successfully');
-  }
-
-  // Salvar ou atualizar número WhatsApp na base de dados
-  const { error: whatsappError } = await supabase
-    .from('whatsapp_numbers')
-    .upsert({
-      agent_id: agentId,
-      phone_number: number,
-      is_connected: false,
-      session_data: instanceResult
+    const createResponse = await fetch(`${EVOLUTION_API_URL}/instance/create`, {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify(instanceData)
     });
 
-  if (whatsappError) {
-    console.error('Error saving WhatsApp number:', whatsappError);
-  }
+    if (!createResponse.ok) {
+      const errorData = await createResponse.text();
+      console.error('Error creating instance in Evolution API:', errorData);
+      throw new Error(`Failed to create instance: ${errorData}`);
+    }
 
-  return new Response(JSON.stringify(instanceResult), {
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
+    const instanceResult = await createResponse.json();
+    console.log('Instance created successfully in Evolution API v2:', instanceResult);
+
+    // Configurar webhook para receber mensagens
+    const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/evolution-webhook`;
+    console.log('Setting webhook to:', webhookUrl);
+    
+    const webhookResponse = await fetch(`${EVOLUTION_API_URL}/webhook/set/${instanceName}`, {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({
+        url: webhookUrl,
+        webhook_by_events: false,
+        webhook_base64: false,
+        events: [
+          'APPLICATION_STARTUP',
+          'QRCODE_UPDATED',
+          'CONNECTION_UPDATE',
+          'MESSAGES_UPSERT',
+          'MESSAGES_UPDATE'
+        ]
+      })
+    });
+
+    if (!webhookResponse.ok) {
+      console.error('Error setting webhook:', await webhookResponse.text());
+    } else {
+      console.log('Webhook configured successfully');
+    }
+
+    // Salvar ou atualizar número WhatsApp na base de dados
+    const { error: whatsappError } = await supabase
+      .from('whatsapp_numbers')
+      .upsert({
+        agent_id: agentId,
+        phone_number: number,
+        is_connected: false,
+        session_data: instanceResult
+      });
+
+    if (whatsappError) {
+      console.error('Error saving WhatsApp number:', whatsappError);
+    } else {
+      console.log('WhatsApp number saved successfully');
+    }
+
+    return new Response(JSON.stringify(instanceResult), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+
+  } catch (error) {
+    console.error('Error in createInstance:', error);
+    throw error;
+  }
 }
 
 async function configureOpenAI(instanceName: string, agentId: string, authHeaders: any) {
   console.log('Configuring OpenAI for instance:', instanceName);
 
-  // Buscar dados do agente
-  const { data: agent, error: agentError } = await supabase
-    .from('agents')
-    .select('*')
-    .eq('id', agentId)
-    .single();
+  try {
+    // Buscar dados do agente
+    const { data: agent, error: agentError } = await supabase
+      .from('agents')
+      .select('*')
+      .eq('id', agentId)
+      .maybeSingle();
 
-  if (agentError || !agent) {
-    throw new Error('Agent not found');
+    if (agentError) {
+      console.error('Agent query error:', agentError);
+      throw new Error(`Database error: ${agentError.message}`);
+    }
+
+    if (!agent) {
+      throw new Error(`Agent not found with ID: ${agentId}`);
+    }
+
+    if (!agent.openai_api_key) {
+      throw new Error('OpenAI API key not configured for this agent');
+    }
+
+    // Configurar OpenAI na Evolution API v2
+    const openaiConfig = {
+      openaiApiKey: agent.openai_api_key,
+      model: 'gpt-4o-mini',
+      systemMessages: [agent.base_prompt],
+      assistantMessages: [],
+      userMessages: [],
+      maxTokens: 1000,
+      temperature: 0.7,
+      topP: 1,
+      n: 1,
+      stop: null,
+      presencePenalty: 0,
+      frequencyPenalty: 0
+    };
+
+    const response = await fetch(`${EVOLUTION_API_URL}/chat/whatsappDefault/${instanceName}`, {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify(openaiConfig)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('Error configuring OpenAI:', errorData);
+      throw new Error(`Failed to configure OpenAI: ${errorData}`);
+    }
+
+    const result = await response.json();
+    console.log('OpenAI configured successfully:', result);
+
+    return new Response(JSON.stringify(result), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+
+  } catch (error) {
+    console.error('Error in configureOpenAI:', error);
+    throw error;
   }
-
-  if (!agent.openai_api_key) {
-    throw new Error('OpenAI API key not configured for this agent');
-  }
-
-  // Configurar OpenAI na Evolution API
-  const openaiConfig = {
-    openaiApiKey: agent.openai_api_key,
-    model: 'gpt-4o-mini',
-    systemMessages: [agent.base_prompt],
-    assistantMessages: [],
-    userMessages: [],
-    maxTokens: 1000,
-    temperature: 0.7,
-    topP: 1,
-    n: 1,
-    stop: null,
-    presencePenalty: 0,
-    frequencyPenalty: 0
-  };
-
-  const response = await fetch(`${EVOLUTION_API_URL}/chat/whatsappDefault/${instanceName}`, {
-    method: 'POST',
-    headers: authHeaders,
-    body: JSON.stringify(openaiConfig)
-  });
-
-  if (!response.ok) {
-    const errorData = await response.text();
-    console.error('Error configuring OpenAI:', errorData);
-    throw new Error(`Failed to configure OpenAI: ${errorData}`);
-  }
-
-  const result = await response.json();
-  console.log('OpenAI configured successfully:', result);
-
-  return new Response(JSON.stringify(result), {
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
 }
 
 async function sendMessage(instanceName: string, message: string, to: string, authHeaders: any) {
