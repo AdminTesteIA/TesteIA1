@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
@@ -413,10 +412,15 @@ async function syncMessages(instanceName: string, agentId: string, authHeaders: 
   console.log('Syncing messages for instance:', instanceName);
 
   try {
-    // Buscar mensagens da Evolution API
+    // Usar a URL correta conforme a documentação oficial
     const response = await fetch(`${EVOLUTION_API_URL}/chat/findMessages/${instanceName}`, {
-      method: 'GET',
-      headers: authHeaders
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({
+        where: {
+          owner: instanceName
+        }
+      })
     });
 
     if (!response.ok) {
@@ -450,10 +454,15 @@ async function syncChats(instanceName: string, agentId: string, authHeaders: any
   console.log('Syncing chats for instance:', instanceName);
 
   try {
-    // Buscar chats da Evolution API
+    // Usar a URL correta conforme a documentação oficial: POST com filtro
     const response = await fetch(`${EVOLUTION_API_URL}/chat/findChats/${instanceName}`, {
-      method: 'GET',
-      headers: authHeaders
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({
+        where: {
+          owner: instanceName
+        }
+      })
     });
 
     if (!response.ok) {
@@ -533,10 +542,15 @@ async function syncContacts(instanceName: string, agentId: string, authHeaders: 
   console.log('Syncing contacts for instance:', instanceName);
 
   try {
-    // Buscar contatos da Evolution API
+    // Usar a URL correta conforme a documentação oficial
     const response = await fetch(`${EVOLUTION_API_URL}/chat/findContacts/${instanceName}`, {
-      method: 'GET',
-      headers: authHeaders
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({
+        where: {
+          owner: instanceName
+        }
+      })
     });
 
     if (!response.ok) {
