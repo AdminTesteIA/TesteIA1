@@ -118,10 +118,26 @@ async function createInstance(instanceName: string, agentId: string, number: str
         base64: true,
         events: [
           "APPLICATION_STARTUP",
-          "QRCODE_UPDATED", 
-          "CONNECTION_UPDATE",
+          "QRCODE_UPDATED",
+          "MESSAGES_SET",
           "MESSAGES_UPSERT",
-          "MESSAGES_UPDATE"
+          "MESSAGES_UPDATE",
+          "MESSAGES_DELETE",
+          "SEND_MESSAGE",
+          "CONTACTS_SET",
+          "CONTACTS_UPSERT",
+          "CONTACTS_UPDATE",
+          "PRESENCE_UPDATE",
+          "CHATS_SET",
+          "CHATS_UPSERT",
+          "CHATS_UPDATE",
+          "CHATS_DELETE",
+          "GROUPS_UPSERT",
+          "GROUP_UPDATE",
+          "GROUP_PARTICIPANTS_UPDATE",
+          "CONNECTION_UPDATE",
+          "CALL",
+          "NEW_JWT_TOKEN"
         ]
       }
     };
@@ -184,11 +200,27 @@ async function configureWebhook(instanceName: string, authHeaders: any) {
     byEvents: true,
     base64: true,
     events: [
-      'APPLICATION_STARTUP',
-      'QRCODE_UPDATED', 
-      'CONNECTION_UPDATE',
-      'MESSAGES_UPSERT',
-      'MESSAGES_UPDATE'
+     "APPLICATION_STARTUP",
+          "QRCODE_UPDATED",
+          "MESSAGES_SET",
+          "MESSAGES_UPSERT",
+          "MESSAGES_UPDATE",
+          "MESSAGES_DELETE",
+          "SEND_MESSAGE",
+          "CONTACTS_SET",
+          "CONTACTS_UPSERT",
+          "CONTACTS_UPDATE",
+          "PRESENCE_UPDATE",
+          "CHATS_SET",
+          "CHATS_UPSERT",
+          "CHATS_UPDATE",
+          "CHATS_DELETE",
+          "GROUPS_UPSERT",
+          "GROUP_UPDATE",
+          "GROUP_PARTICIPANTS_UPDATE",
+          "CONNECTION_UPDATE",
+          "CALL",
+          "NEW_JWT_TOKEN"
     ]
   };
 
