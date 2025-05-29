@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -31,7 +32,6 @@ export const WhatsAppConnection = ({
   const [phoneNumber, setPhoneNumber] = useState('');
   const [qrCode, setQrCode] = useState(whatsappNumber?.qr_code || '');
   const [isConnected, setIsConnected] = useState(whatsappNumber?.is_connected || false);
-  const [showQR, setShowQR] = useState(false);
   
   const { 
     loading, 
@@ -87,10 +87,14 @@ export const WhatsAppConnection = ({
 
     try {
       const result = await getQRCode(instanceName);
-      if (result.qrcode) {
-        setQrCode(result.qrcode);
-        setShowQR(true);
+      if (result.base64 || result.qrcode) {
+        const qrCodeData = result.base64 || result.qrcode;
+        setQrCode(qrCodeData);
         toast.success('QR Code atualizado!');
+        
+        if (onConnectionUpdate) {
+          onConnectionUpdate();
+        }
       }
     } catch (error) {
       console.error('Error getting QR code:', error);
@@ -109,7 +113,7 @@ export const WhatsAppConnection = ({
         
         if (connected) {
           toast.success('WhatsApp conectado!');
-          setShowQR(false);
+          setQrCode(''); // Limpar QR code quando conectado
         } else {
           toast.warning('WhatsApp não está conectado');
         }
@@ -200,7 +204,7 @@ export const WhatsAppConnection = ({
             <div className="flex space-x-2">
               <Button 
                 onClick={handleGetQRCode} 
-                disabled={loading}
+                disabled={loading || isConnected}
                 variant="outline"
                 size="sm"
               >
@@ -227,18 +231,32 @@ export const WhatsAppConnection = ({
               </Button>
             </div>
 
-            {showQR && qrCode && (
-              <div className="border rounded-lg p-4 text-center">
-                <h3 className="font-medium mb-2">Escaneie com seu WhatsApp</h3>
-                <div className="flex justify-center">
+            {/* Mostrar QR Code automaticamente se disponível e não conectado */}
+            {qrCode && !isConnected && (
+              <div className="border rounded-lg p-4 text-center bg-white">
+                <h3 className="font-medium mb-2 text-gray-800">Escaneie com seu WhatsApp</h3>
+                <div className="flex justify-center mb-2">
                   <img 
                     src={qrCode} 
                     alt="QR Code WhatsApp" 
-                    className="max-w-64 max-h-64"
+                    className="max-w-64 max-h-64 border rounded"
                   />
                 </div>
-                <p className="text-sm text-gray-500 mt-2">
+                <p className="text-sm text-gray-500">
                   Abra o WhatsApp → Aparelhos conectados → Conectar novo aparelho
+                </p>
+                <p className="text-xs text-gray-400 mt-2">
+                  O QR Code é atualizado automaticamente a cada poucos segundos
+                </p>
+              </div>
+            )}
+
+            {isConnected && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-2" />
+                <h3 className="font-medium text-green-800 mb-1">WhatsApp Conectado!</h3>
+                <p className="text-sm text-green-600">
+                  Sua instância está pronta para receber e enviar mensagens.
                 </p>
               </div>
             )}
