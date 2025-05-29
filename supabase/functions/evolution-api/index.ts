@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
@@ -115,6 +114,24 @@ async function createInstance(instanceName: string, agentId: string, number: str
     const instanceResult = await createResponse.json();
     console.log('Instance created successfully in Evolution API v2:', instanceResult);
 
+    // Salvar número WhatsApp na base de dados - SEMPRE como desconectado inicialmente
+    // Independente do status retornado pela Evolution API
+    const { error: whatsappError } = await supabase
+      .from('whatsapp_numbers')
+      .upsert({
+        agent_id: agentId,
+        phone_number: number,
+        is_connected: false, // SEMPRE false inicialmente
+        session_data: instanceResult
+      });
+
+    if (whatsappError) {
+      console.error('Error saving WhatsApp number:', whatsappError);
+      throw new Error(`Failed to save WhatsApp number: ${whatsappError.message}`);
+    } else {
+      console.log('WhatsApp number saved successfully as disconnected');
+    }
+
     // Configurar webhook para receber mensagens do Evolution Channel
     const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/evolution-webhook`;
     console.log('Configuring webhook for Evolution Channel to:', webhookUrl);
@@ -126,26 +143,10 @@ async function createInstance(instanceName: string, agentId: string, number: str
       console.error('Error configuring webhook (continuing anyway):', webhookError);
     }
 
-    // Salvar número WhatsApp na base de dados
-    const { error: whatsappError } = await supabase
-      .from('whatsapp_numbers')
-      .upsert({
-        agent_id: agentId,
-        phone_number: number,
-        is_connected: false,
-        session_data: instanceResult
-      });
-
-    if (whatsappError) {
-      console.error('Error saving WhatsApp number:', whatsappError);
-    } else {
-      console.log('WhatsApp number saved successfully');
-    }
-
     return new Response(JSON.stringify({
       success: true,
       instanceResult,
-      message: 'Instance created successfully. Evolution Channel integration ready.'
+      message: 'Instance created successfully. Evolution Channel integration ready. Status: Disconnected (scan QR to connect).'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
