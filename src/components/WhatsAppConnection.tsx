@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -37,7 +36,6 @@ export const WhatsAppConnection = ({
   const { 
     loading, 
     createInstance, 
-    configureOpenAI, 
     getQRCode, 
     getInstanceStatus 
   } = useEvolutionAPI();
@@ -70,13 +68,9 @@ export const WhatsAppConnection = ({
     try {
       console.log('Creating instance with name:', instanceName, 'and number:', phoneNumber);
       
-      // Criar instância (agora com o parâmetro number obrigatório)
+      // Criar instância na Evolution API v2
       await createInstance(instanceName, agent.id, phoneNumber);
-      toast.success('Instância criada com sucesso!');
-
-      // Configurar OpenAI
-      await configureOpenAI(instanceName, agent.id);
-      toast.success('OpenAI configurada com sucesso!');
+      toast.success('Instância WhatsApp criada com sucesso!');
 
       if (onConnectionUpdate) {
         onConnectionUpdate();
