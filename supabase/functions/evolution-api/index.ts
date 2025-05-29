@@ -88,14 +88,18 @@ async function createInstance(instanceName: string, agentId: string, number: str
 
     console.log('Agent found:', agent.name);
 
+    // Criar identificador único concatenando nome da instância com número
+    const uniqueInstanceName = `${instanceName}-${number}`;
+    console.log('Unique instance name:', uniqueInstanceName);
+
     // Configurar webhook URL
     const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/evolution-webhook`;
 
     // Criar instância na Evolution API usando a configuração correta
     const instanceData = {
-      instanceName: instanceName,
+      instanceName: uniqueInstanceName,
       token: agentId, // Usar agentId como token
-      qrcode: false,
+      qrcode: true,
       number: number,
       integration: "WHATSAPP-BAILEYS",
       rejectCall: true,
@@ -136,12 +140,12 @@ async function createInstance(instanceName: string, agentId: string, number: str
     const instanceResult = await createResponse.json();
     console.log('Instance created successfully in Evolution API:', instanceResult);
 
-    // Salvar número WhatsApp na base de dados - SEMPRE como desconectado inicialmente
+    // Salvar número WhatsApp na base de dados - usando o nome único da instância
     const { error: whatsappError } = await supabase
       .from('whatsapp_numbers')
       .upsert({
         agent_id: agentId,
-        phone_number: number,
+        phone_number: uniqueInstanceName, // Usar o nome único da instância
         is_connected: false, // SEMPRE false inicialmente
         session_data: instanceResult
       });
@@ -254,7 +258,7 @@ async function getQRCode(instanceName: string, authHeaders: any) {
     const { data: whatsappData, error: findError } = await supabase
       .from('whatsapp_numbers')
       .select('*')
-      .eq('phone_number', instanceName)
+      .eq('phone_number', instanceName) // Buscar pelo nome único da instância
       .maybeSingle();
 
     if (findError) {
