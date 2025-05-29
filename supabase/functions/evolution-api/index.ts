@@ -22,8 +22,8 @@ serve(async (req) => {
   }
 
   try {
-    const { action, instanceName, agentId, message, to } = await req.json();
-    console.log('Evolution API action:', action, { instanceName, agentId, to });
+    const { action, instanceName, agentId, message, to, number } = await req.json();
+    console.log('Evolution API action:', action, { instanceName, agentId, to, number });
 
     const authHeaders = {
       'apikey': EVOLUTION_API_KEY,
@@ -32,7 +32,7 @@ serve(async (req) => {
 
     switch (action) {
       case 'createInstance':
-        return await createInstance(instanceName, agentId, authHeaders);
+        return await createInstance(instanceName, agentId, number, authHeaders);
       
       case 'configureOpenAI':
         return await configureOpenAI(instanceName, agentId, authHeaders);
@@ -64,7 +64,7 @@ serve(async (req) => {
   }
 });
 
-async function createInstance(instanceName: string, agentId: string, authHeaders: any) {
+async function createInstance(instanceName: string, agentId: string, number: string, authHeaders: any) {
   console.log('Creating Evolution API instance:', instanceName);
 
   // Buscar dados do agente
@@ -75,18 +75,24 @@ async function createInstance(instanceName: string, agentId: string, authHeaders
     .single();
 
   if (agentError || !agent) {
+    console.error('Agent error:', agentError);
     throw new Error('Agent not found');
   }
 
-  // Criar instância na Evolution API
+  // Criar instância na Evolution API seguindo a documentação oficial
+  const instanceData = {
+    instanceName: instanceName,
+    number: number, // Number ID da instância
+    qrcode: false, // Sempre false para integração Evolution
+    integration: "EVOLUTION" // Especifica integração com canal universal Evolution
+  };
+
+  console.log('Sending instance creation request:', instanceData);
+
   const createResponse = await fetch(`${EVOLUTION_API_URL}/instance/create`, {
     method: 'POST',
     headers: authHeaders,
-    body: JSON.stringify({
-      instanceName: instanceName,
-      qrcode: true,
-      integration: 'WHATSAPP-BAILEYS'
-    })
+    body: JSON.stringify(instanceData)
   });
 
   if (!createResponse.ok) {
@@ -95,11 +101,13 @@ async function createInstance(instanceName: string, agentId: string, authHeaders
     throw new Error(`Failed to create instance: ${errorData}`);
   }
 
-  const instanceData = await createResponse.json();
-  console.log('Instance created:', instanceData);
+  const instanceResult = await createResponse.json();
+  console.log('Instance created successfully:', instanceResult);
 
   // Configurar webhook
   const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/evolution-webhook`;
+  console.log('Setting webhook to:', webhookUrl);
+  
   const webhookResponse = await fetch(`${EVOLUTION_API_URL}/webhook/set/${instanceName}`, {
     method: 'POST',
     headers: authHeaders,
@@ -119,6 +127,8 @@ async function createInstance(instanceName: string, agentId: string, authHeaders
 
   if (!webhookResponse.ok) {
     console.error('Error setting webhook:', await webhookResponse.text());
+  } else {
+    console.log('Webhook configured successfully');
   }
 
   // Salvar ou atualizar número WhatsApp na base de dados
@@ -126,16 +136,16 @@ async function createInstance(instanceName: string, agentId: string, authHeaders
     .from('whatsapp_numbers')
     .upsert({
       agent_id: agentId,
-      phone_number: instanceName,
+      phone_number: number,
       is_connected: false,
-      session_data: instanceData
+      session_data: instanceResult
     });
 
   if (whatsappError) {
     console.error('Error saving WhatsApp number:', whatsappError);
   }
 
-  return new Response(JSON.stringify(instanceData), {
+  return new Response(JSON.stringify(instanceResult), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 }

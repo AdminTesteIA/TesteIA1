@@ -28,9 +28,9 @@ export const useEvolutionAPI = () => {
     }
   };
 
-  const createInstance = async (instanceName: string, agentId: string) => {
-    console.log('Creating WhatsApp instance:', instanceName);
-    return await callEvolutionAPI('createInstance', { instanceName, agentId });
+  const createInstance = async (instanceName: string, agentId: string, number: string) => {
+    console.log('Creating WhatsApp instance:', instanceName, 'with number:', number);
+    return await callEvolutionAPI('createInstance', { instanceName, agentId, number });
   };
 
   const configureOpenAI = async (instanceName: string, agentId: string) => {

@@ -28,7 +28,8 @@ export const WhatsAppConnection = ({
   whatsappNumber, 
   onConnectionUpdate 
 }: WhatsAppConnectionProps) => {
-  const [instanceName, setInstanceName] = useState(whatsappNumber?.phone_number || '');
+  const [instanceName, setInstanceName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [qrCode, setQrCode] = useState(whatsappNumber?.qr_code || '');
   const [isConnected, setIsConnected] = useState(whatsappNumber?.is_connected || false);
   const [showQR, setShowQR] = useState(false);
@@ -44,6 +45,7 @@ export const WhatsAppConnection = ({
   useEffect(() => {
     if (whatsappNumber) {
       setInstanceName(whatsappNumber.phone_number);
+      setPhoneNumber(whatsappNumber.phone_number);
       setQrCode(whatsappNumber.qr_code || '');
       setIsConnected(whatsappNumber.is_connected);
     }
@@ -55,29 +57,26 @@ export const WhatsAppConnection = ({
       return;
     }
 
+    if (!phoneNumber.trim()) {
+      toast.error('Digite o número do WhatsApp');
+      return;
+    }
+
     if (!agent.openai_api_key) {
       toast.error('Configure a chave da OpenAI no agente primeiro');
       return;
     }
 
     try {
-      console.log('Creating instance with name:', instanceName);
+      console.log('Creating instance with name:', instanceName, 'and number:', phoneNumber);
       
-      // Criar instância
-      await createInstance(instanceName, agent.id);
+      // Criar instância (agora com o parâmetro number obrigatório)
+      await createInstance(instanceName, agent.id, phoneNumber);
       toast.success('Instância criada com sucesso!');
 
       // Configurar OpenAI
       await configureOpenAI(instanceName, agent.id);
       toast.success('OpenAI configurada com sucesso!');
-
-      // Obter QR Code
-      const qrResult = await getQRCode(instanceName);
-      if (qrResult.qrcode) {
-        setQrCode(qrResult.qrcode);
-        setShowQR(true);
-        toast.success('QR Code gerado! Escaneie com seu WhatsApp.');
-      }
 
       if (onConnectionUpdate) {
         onConnectionUpdate();
@@ -161,6 +160,21 @@ export const WhatsAppConnection = ({
               />
               <p className="text-xs text-gray-500 mt-1">
                 Use apenas letras, números e hífens
+              </p>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium mb-2 block">
+                Número do WhatsApp
+              </label>
+              <Input
+                placeholder="Ex: 5511999999999"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                disabled={loading}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Número com código do país (ex: 5511999999999)
               </p>
             </div>
             
