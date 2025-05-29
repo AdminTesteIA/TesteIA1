@@ -246,13 +246,20 @@ async function getQRCode(instanceName: string, authHeaders: any) {
   }
 
   const result = await response.json();
+  console.log('QR Code response from Evolution API:', result);
   
-  // Atualizar QR code na base de dados
-  if (result.qrcode) {
-    await supabase
+  // Atualizar QR code na base de dados se disponível
+  if (result.code) {
+    const { error: updateError } = await supabase
       .from('whatsapp_numbers')
-      .update({ qr_code: result.qrcode })
+      .update({ qr_code: result.code })
       .eq('phone_number', instanceName);
+
+    if (updateError) {
+      console.error('Error updating QR code in database:', updateError);
+    } else {
+      console.log('QR code updated in database successfully');
+    }
   }
 
   return new Response(JSON.stringify(result), {
