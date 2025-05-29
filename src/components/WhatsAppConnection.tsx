@@ -1,4 +1,5 @@
 
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -107,6 +108,8 @@ export const WhatsAppConnection = ({
 
     try {
       const result = await getInstanceStatus(instanceName);
+      console.log('Status result:', result);
+      
       if (result[0]?.instance?.state) {
         const connected = result[0].instance.state === 'open';
         setIsConnected(connected);
@@ -118,9 +121,12 @@ export const WhatsAppConnection = ({
           toast.warning('WhatsApp não está conectado');
         }
 
+        // Sempre atualizar os dados do componente pai
         if (onConnectionUpdate) {
           onConnectionUpdate();
         }
+      } else {
+        toast.error('Não foi possível verificar o status da instância');
       }
     } catch (error) {
       console.error('Error checking status:', error);

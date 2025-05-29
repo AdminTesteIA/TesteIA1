@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
@@ -299,14 +300,27 @@ async function getInstanceStatus(instanceName: string, authHeaders: any) {
   }
 
   const result = await response.json();
+  console.log('Instance status response from Evolution API:', result);
   
-  // Atualizar status de conexão na base de dados
+  // Atualizar status de conexão no banco de dados
   if (result[0]?.instance?.state) {
     const isConnected = result[0].instance.state === 'open';
-    await supabase
+    console.log('Updating connection status in database:', { instanceName, isConnected });
+    
+    const { error: updateError } = await supabase
       .from('whatsapp_numbers')
-      .update({ is_connected: isConnected })
+      .update({ 
+        is_connected: isConnected,
+        // Limpar QR code se conectado
+        qr_code: isConnected ? null : undefined
+      })
       .eq('phone_number', instanceName);
+
+    if (updateError) {
+      console.error('Error updating connection status in database:', updateError);
+    } else {
+      console.log('Connection status updated successfully in database');
+    }
   }
 
   return new Response(JSON.stringify(result), {
