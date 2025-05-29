@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
@@ -50,6 +51,12 @@ serve(async (req) => {
       
       case 'syncMessages':
         return await syncMessages(instanceName, agentId, authHeaders);
+
+      case 'syncChats':
+        return await syncChats(instanceName, agentId, authHeaders);
+
+      case 'syncContacts':
+        return await syncContacts(instanceName, agentId, authHeaders);
       
       default:
         return new Response(JSON.stringify({ error: 'Invalid action' }), {
@@ -405,10 +412,288 @@ async function logoutInstance(instanceName: string, authHeaders: any) {
 async function syncMessages(instanceName: string, agentId: string, authHeaders: any) {
   console.log('Syncing messages for instance:', instanceName);
 
-  // Implementar sincronização de mensagens existentes
-  // Esta funcionalidade pode ser expandida conforme necessário
-  
-  return new Response(JSON.stringify({ message: 'Sync completed' }), {
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
+  try {
+    // Buscar mensagens da Evolution API
+    const response = await fetch(`${EVOLUTION_API_URL}/chat/findMessages/${instanceName}`, {
+      method: 'GET',
+      headers: authHeaders
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('Error fetching messages:', errorData);
+      throw new Error(`Failed to fetch messages: ${errorData}`);
+    }
+
+    const messages = await response.json();
+    console.log('Messages fetched from Evolution API:', messages.length);
+
+    // Processar e salvar mensagens no banco
+    for (const message of messages) {
+      await processAndSaveMessage(message, instanceName, agentId);
+    }
+
+    return new Response(JSON.stringify({ 
+      success: true, 
+      messagesSynced: messages.length 
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+
+  } catch (error) {
+    console.error('Error syncing messages:', error);
+    throw error;
+  }
+}
+
+async function syncChats(instanceName: string, agentId: string, authHeaders: any) {
+  console.log('Syncing chats for instance:', instanceName);
+
+  try {
+    // Buscar chats da Evolution API
+    const response = await fetch(`${EVOLUTION_API_URL}/chat/findChats/${instanceName}`, {
+      method: 'GET',
+      headers: authHeaders
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('Error fetching chats:', errorData);
+      throw new Error(`Failed to fetch chats: ${errorData}`);
+    }
+
+    const chats = await response.json();
+    console.log('Chats fetched from Evolution API:', chats.length);
+
+    // Buscar WhatsApp number ID
+    const { data: whatsappData, error: whatsappError } = await supabase
+      .from('whatsapp_numbers')
+      .select('id')
+      .eq('phone_number', instanceName)
+      .eq('agent_id', agentId)
+      .maybeSingle();
+
+    if (whatsappError || !whatsappData) {
+      console.error('WhatsApp number not found:', whatsappError);
+      throw new Error('WhatsApp number not found');
+    }
+
+    // Processar e salvar conversas
+    let conversationsSynced = 0;
+    for (const chat of chats) {
+      if (chat.id && !chat.id.includes('@g.us')) { // Apenas chats individuais, não grupos
+        const contactNumber = chat.id.replace('@s.whatsapp.net', '');
+        const contactName = chat.name || chat.pushName || null;
+
+        // Verificar se a conversa já existe
+        const { data: existingConversation } = await supabase
+          .from('conversations')
+          .select('id')
+          .eq('whatsapp_number_id', whatsappData.id)
+          .eq('contact_number', contactNumber)
+          .maybeSingle();
+
+        if (!existingConversation) {
+          // Criar nova conversa
+          const { error: conversationError } = await supabase
+            .from('conversations')
+            .insert({
+              whatsapp_number_id: whatsappData.id,
+              contact_number: contactNumber,
+              contact_name: contactName,
+              last_message_at: chat.lastMessage?.messageTimestamp 
+                ? new Date(chat.lastMessage.messageTimestamp * 1000).toISOString()
+                : new Date().toISOString()
+            });
+
+          if (conversationError) {
+            console.error('Error creating conversation:', conversationError);
+          } else {
+            conversationsSynced++;
+            console.log('Conversation created for:', contactNumber);
+          }
+        }
+      }
+    }
+
+    return new Response(JSON.stringify({ 
+      success: true, 
+      conversationsSynced 
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+
+  } catch (error) {
+    console.error('Error syncing chats:', error);
+    throw error;
+  }
+}
+
+async function syncContacts(instanceName: string, agentId: string, authHeaders: any) {
+  console.log('Syncing contacts for instance:', instanceName);
+
+  try {
+    // Buscar contatos da Evolution API
+    const response = await fetch(`${EVOLUTION_API_URL}/chat/findContacts/${instanceName}`, {
+      method: 'GET',
+      headers: authHeaders
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('Error fetching contacts:', errorData);
+      throw new Error(`Failed to fetch contacts: ${errorData}`);
+    }
+
+    const contacts = await response.json();
+    console.log('Contacts fetched from Evolution API:', contacts.length);
+
+    // Buscar WhatsApp number ID
+    const { data: whatsappData, error: whatsappError } = await supabase
+      .from('whatsapp_numbers')
+      .select('id')
+      .eq('phone_number', instanceName)
+      .eq('agent_id', agentId)
+      .maybeSingle();
+
+    if (whatsappError || !whatsappData) {
+      console.error('WhatsApp number not found:', whatsappError);
+      throw new Error('WhatsApp number not found');
+    }
+
+    // Atualizar nomes dos contatos nas conversas existentes
+    let contactsUpdated = 0;
+    for (const contact of contacts) {
+      if (contact.id && !contact.id.includes('@g.us')) {
+        const contactNumber = contact.id.replace('@s.whatsapp.net', '');
+        const contactName = contact.name || contact.pushName || contact.verifiedName;
+
+        if (contactName) {
+          const { error: updateError } = await supabase
+            .from('conversations')
+            .update({ contact_name: contactName })
+            .eq('whatsapp_number_id', whatsappData.id)
+            .eq('contact_number', contactNumber);
+
+          if (!updateError) {
+            contactsUpdated++;
+          }
+        }
+      }
+    }
+
+    return new Response(JSON.stringify({ 
+      success: true, 
+      contactsUpdated 
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+
+  } catch (error) {
+    console.error('Error syncing contacts:', error);
+    throw error;
+  }
+}
+
+async function processAndSaveMessage(message: any, instanceName: string, agentId: string) {
+  try {
+    // Buscar WhatsApp number ID
+    const { data: whatsappData, error: whatsappError } = await supabase
+      .from('whatsapp_numbers')
+      .select('id')
+      .eq('phone_number', instanceName)
+      .eq('agent_id', agentId)
+      .maybeSingle();
+
+    if (whatsappError || !whatsappData) {
+      console.error('WhatsApp number not found:', whatsappError);
+      return;
+    }
+
+    // Extrair informações da mensagem
+    const isFromContact = !message.key?.fromMe;
+    const contactNumber = message.key?.remoteJid?.replace('@s.whatsapp.net', '');
+    const messageContent = message.message?.conversation || 
+                          message.message?.extendedTextMessage?.text || 
+                          '[Media]';
+
+    if (!contactNumber || contactNumber.includes('@g.us')) {
+      return; // Pular grupos e mensagens inválidas
+    }
+
+    // Buscar ou criar conversa
+    let { data: conversation, error: conversationError } = await supabase
+      .from('conversations')
+      .select('id')
+      .eq('whatsapp_number_id', whatsappData.id)
+      .eq('contact_number', contactNumber)
+      .maybeSingle();
+
+    if (conversationError) {
+      console.error('Error finding conversation:', conversationError);
+      return;
+    }
+
+    if (!conversation) {
+      // Criar nova conversa
+      const { data: newConversation, error: createError } = await supabase
+        .from('conversations')
+        .insert({
+          whatsapp_number_id: whatsappData.id,
+          contact_number: contactNumber,
+          contact_name: message.pushName || null,
+          last_message_at: new Date(message.messageTimestamp * 1000).toISOString()
+        })
+        .select('id')
+        .single();
+
+      if (createError) {
+        console.error('Error creating conversation:', createError);
+        return;
+      }
+
+      conversation = newConversation;
+    }
+
+    // Verificar se a mensagem já existe
+    const { data: existingMessage } = await supabase
+      .from('messages')
+      .select('id')
+      .eq('conversation_id', conversation.id)
+      .eq('created_at', new Date(message.messageTimestamp * 1000).toISOString())
+      .eq('content', messageContent)
+      .maybeSingle();
+
+    if (!existingMessage) {
+      // Salvar mensagem
+      const { error: messageError } = await supabase
+        .from('messages')
+        .insert({
+          conversation_id: conversation.id,
+          content: messageContent,
+          is_from_contact: isFromContact,
+          message_type: 'text',
+          created_at: new Date(message.messageTimestamp * 1000).toISOString(),
+          metadata: { 
+            messageId: message.key?.id,
+            delivery_status: 'sent'
+          }
+        });
+
+      if (messageError) {
+        console.error('Error saving message:', messageError);
+      }
+
+      // Atualizar última mensagem da conversa
+      await supabase
+        .from('conversations')
+        .update({ 
+          last_message_at: new Date(message.messageTimestamp * 1000).toISOString() 
+        })
+        .eq('id', conversation.id);
+    }
+
+  } catch (error) {
+    console.error('Error processing message:', error);
+  }
 }

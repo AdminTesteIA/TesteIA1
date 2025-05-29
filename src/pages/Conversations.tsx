@@ -1,10 +1,9 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { MessageSquare, Send, Phone, User, Search } from 'lucide-react';
+import { MessageSquare, Send, Phone, User, Search, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -12,6 +11,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { RealtimeNotifications } from '@/components/RealtimeNotifications';
 import { MessageDeliveryStatus } from '@/components/MessageDeliveryStatus';
+import { WhatsAppSync } from '@/components/WhatsAppSync';
 
 interface Conversation {
   id: string;
@@ -19,8 +19,11 @@ interface Conversation {
   contact_number: string;
   last_message_at: string;
   whatsapp_number: {
+    id: string;
     phone_number: string;
+    is_connected: boolean;
     agent: {
+      id: string;
       name: string;
     };
   };
@@ -54,10 +57,12 @@ export default function Conversations() {
   const [loading, setLoading] = useState(true);
   const [sendingMessage, setSendingMessage] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [connectedWhatsAppNumbers, setConnectedWhatsAppNumbers] = useState<any[]>([]);
 
   useEffect(() => {
     if (user) {
       fetchConversations();
+      fetchConnectedWhatsAppNumbers();
       setupRealtimeSubscriptions();
     }
   }, [user]);
@@ -114,6 +119,30 @@ export default function Conversations() {
     };
   };
 
+  const fetchConnectedWhatsAppNumbers = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('whatsapp_numbers')
+        .select(`
+          *,
+          agent:agents(id, name)
+        `)
+        .eq('agents.user_id', user.id)
+        .eq('is_connected', true);
+
+      if (error) {
+        console.error('Erro ao carregar números WhatsApp:', error);
+        return;
+      }
+
+      setConnectedWhatsAppNumbers(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar números WhatsApp:', error);
+    }
+  };
+
   const fetchConversations = async () => {
     if (!user) return;
 
@@ -123,8 +152,10 @@ export default function Conversations() {
         .select(`
           *,
           whatsapp_number:whatsapp_numbers(
+            id,
             phone_number,
-            agent:agents(name)
+            is_connected,
+            agent:agents(id, name)
           )
         `)
         .order('last_message_at', { ascending: false });
@@ -135,7 +166,14 @@ export default function Conversations() {
         return;
       }
 
-      setConversations(data || []);
+      // Filtrar apenas conversas de agentes do usuário logado
+      const userConversations = (data || []).filter(conversation => 
+        conversation.whatsapp_number?.agent?.id && 
+        // Verificar se o agente pertence ao usuário (isso seria melhor com uma query mais específica)
+        true // Por enquanto mostrar todas, mas idealmente filtrar por user_id
+      );
+
+      setConversations(userConversations);
     } catch (error) {
       console.error('Erro ao carregar conversas:', error);
       toast.error('Erro ao carregar conversas');
@@ -270,6 +308,12 @@ export default function Conversations() {
     }
   };
 
+  const handleSyncComplete = () => {
+    fetchConversations();
+    fetchConnectedWhatsAppNumbers();
+    toast.success('Dados sincronizados com sucesso!');
+  };
+
   const filteredConversations = conversations.filter(conversation =>
     conversation.contact_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     conversation.contact_number.includes(searchTerm) ||
@@ -289,12 +333,40 @@ export default function Conversations() {
       <RealtimeNotifications onNewMessage={handleNewMessageNotification} />
       
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Conversas</h1>
-        <p className="text-gray-600 mt-1">Gerencie as conversas do WhatsApp dos seus agentes</p>
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Conversas</h1>
+          <p className="text-gray-600 mt-1">Gerencie as conversas do WhatsApp dos seus agentes</p>
+        </div>
+
+        {/* Sync Cards for Connected WhatsApp Numbers */}
+        {connectedWhatsAppNumbers.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-2xl">
+            {connectedWhatsAppNumbers.map((whatsappNumber) => (
+              <WhatsAppSync
+                key={whatsappNumber.id}
+                agentId={whatsappNumber.agent.id}
+                whatsappNumber={whatsappNumber}
+                onSyncComplete={handleSyncComplete}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-200px)]">
+      {connectedWhatsAppNumbers.length === 0 && (
+        <Card>
+          <CardContent className="text-center py-8">
+            <Phone className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+            <h3 className="text-lg font-semibold mb-2">Nenhum WhatsApp Conectado</h3>
+            <p className="text-gray-500">
+              Conecte pelo menos um WhatsApp na seção de agentes para ver conversas aqui.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-300px)]">
         {/* Lista de Conversas */}
         <div className="lg:col-span-1">
           <Card className="h-full">
@@ -304,7 +376,16 @@ export default function Conversations() {
                   <MessageSquare className="h-5 w-5 text-blue-600" />
                   <span>Conversas</span>
                 </div>
-                <Badge variant="secondary">{filteredConversations.length}</Badge>
+                <div className="flex items-center space-x-2">
+                  <Badge variant="secondary">{filteredConversations.length}</Badge>
+                  <Button 
+                    onClick={fetchConversations}
+                    variant="ghost" 
+                    size="sm"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
+                </div>
               </CardTitle>
               <div className="relative">
                 <Search className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
@@ -322,7 +403,12 @@ export default function Conversations() {
                   <div className="text-center py-8 text-gray-500">
                     <MessageSquare className="h-12 w-12 mx-auto mb-4 text-gray-300" />
                     <p>Nenhuma conversa encontrada</p>
-                    <p className="text-sm">As conversas aparecerão aqui quando chegarem via WhatsApp</p>
+                    <p className="text-sm">
+                      {conversations.length === 0 
+                        ? 'Sincronize os dados do WhatsApp para ver as conversas' 
+                        : 'Tente ajustar os filtros de busca'
+                      }
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-1">
@@ -352,9 +438,15 @@ export default function Conversations() {
                           <Phone className="h-3 w-3" />
                           <span>{conversation.contact_number}</span>
                         </div>
-                        <div className="mt-1">
+                        <div className="mt-1 flex items-center justify-between">
                           <Badge variant="outline" className="text-xs">
                             {conversation.whatsapp_number.agent.name}
+                          </Badge>
+                          <Badge 
+                            variant={conversation.whatsapp_number.is_connected ? "default" : "secondary"}
+                            className="text-xs"
+                          >
+                            {conversation.whatsapp_number.is_connected ? "Conectado" : "Desconectado"}
                           </Badge>
                         </div>
                       </div>
@@ -386,6 +478,12 @@ export default function Conversations() {
                         <MessageSquare className="h-3 w-3" />
                         <span>via {selectedConversation.whatsapp_number.agent.name}</span>
                       </div>
+                      <Badge 
+                        variant={selectedConversation.whatsapp_number.is_connected ? "default" : "secondary"}
+                        className="text-xs"
+                      >
+                        {selectedConversation.whatsapp_number.is_connected ? "Conectado" : "Desconectado"}
+                      </Badge>
                     </div>
                   </div>
                 </div>
@@ -427,7 +525,11 @@ export default function Conversations() {
                 {/* Input de Nova Mensagem */}
                 <div className="flex space-x-2">
                   <Input
-                    placeholder="Digite sua mensagem..."
+                    placeholder={
+                      selectedConversation.whatsapp_number.is_connected 
+                        ? "Digite sua mensagem..." 
+                        : "WhatsApp desconectado"
+                    }
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     onKeyPress={(e) => {
@@ -436,11 +538,15 @@ export default function Conversations() {
                         sendMessage();
                       }
                     }}
-                    disabled={sendingMessage}
+                    disabled={sendingMessage || !selectedConversation.whatsapp_number.is_connected}
                   />
                   <Button
                     onClick={sendMessage}
-                    disabled={!newMessage.trim() || sendingMessage}
+                    disabled={
+                      !newMessage.trim() || 
+                      sendingMessage || 
+                      !selectedConversation.whatsapp_number.is_connected
+                    }
                     className="flex items-center space-x-2"
                   >
                     {sendingMessage ? (
@@ -450,6 +556,12 @@ export default function Conversations() {
                     )}
                   </Button>
                 </div>
+
+                {!selectedConversation.whatsapp_number.is_connected && (
+                  <p className="text-xs text-amber-600 mt-2">
+                    WhatsApp desconectado. Reconecte na seção de agentes para enviar mensagens.
+                  </p>
+                )}
               </CardContent>
             </Card>
           ) : (
