@@ -33,13 +33,11 @@ serve(async (req) => {
 
       // CORREÇÃO: Separar corretamente os campos
       const contactNumber = remoteJid ? remoteJid.replace('@s.whatsapp.net', '') : numberId; // Número limpo
-      const contactId = payload.key.id || remoteJid; // ID da mensagem ou JID como fallback
       const contactRemoteJid = remoteJid; // JID completo
 
       console.log('Processing Evolution Channel message:', {
         numberId,
         contactNumber,
-        contactId,
         remoteJid: contactRemoteJid,
         messageContent,
         isFromContact,
@@ -61,13 +59,13 @@ serve(async (req) => {
         });
       }
 
-      // Buscar ou criar conversa usando contact_number (número limpo)
+      // Buscar ou criar conversa usando contact_number (número limpo) na tabela chat
       let conversation;
       const { data: existingConversation } = await supabase
-        .from('conversations')
+        .from('chat')
         .select('*')
         .eq('whatsapp_number_id', whatsappNumber.id)
-        .eq('contact_number', contactNumber) // Usar contact_number ao invés de contact_number
+        .eq('contact_number', contactNumber)
         .maybeSingle();
 
       if (existingConversation) {
@@ -75,19 +73,19 @@ serve(async (req) => {
         
         // Atualizar timestamp da última mensagem
         await supabase
-          .from('conversations')
+          .from('chat')
           .update({ last_message_at: new Date().toISOString() })
           .eq('id', conversation.id);
       } else {
-        // Criar nova conversa
+        // Criar nova conversa na tabela chat
         const { data: newConversation, error: conversationError } = await supabase
-          .from('conversations')
+          .from('chat')
           .insert({
+            id: contactRemoteJid, // Usar JID como ID
             whatsapp_number_id: whatsappNumber.id,
             contact_number: contactNumber, // Número limpo
-            contact_id: contactId, // ID da mensagem
+            push_name: contactName,
             remote_jid: contactRemoteJid, // JID completo
-            contact_name: contactName,
             last_message_at: new Date().toISOString()
           })
           .select()

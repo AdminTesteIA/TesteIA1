@@ -86,26 +86,40 @@ export async function syncChats(instanceName: string, agentId: string, authHeade
     let conversationsSynced = 0;
     for (const chat of chats) {
       if (chat.id && !chat.id.includes('@g.us')) { // Apenas chats individuais
-        // CORREÇÃO: Separar corretamente os campos
-        const contactNumber = chat.id.replace('@s.whatsapp.net', ''); // Número limpo 
-        const contactId = chat.id; // ID do chat (JID completo como ID)
-        const remoteJid = chat.id; // JID completo
-        const contactName = chat.pushName || null;
+        // Mapear os campos que têm nomes iguais na tabela chat
+        const chatData = {
+          id: chat.id, // id -> id
+          contact_number: chat.id.replace('@s.whatsapp.net', ''), // Número limpo
+          push_name: chat.pushName || null, // pushName -> push_name
+          remote_jid: chat.id, // JID completo -> remote_jid
+          whatsapp_number_id: whatsappData.id,
+          last_message_at: chat.lastMessage?.messageTimestamp 
+            ? new Date(chat.lastMessage.messageTimestamp * 1000).toISOString()
+            : new Date().toISOString(),
+          metadata: {
+            id: chat.id,
+            remoteJid: chat.remoteJid || chat.id,
+            pushName: chat.pushName,
+            profilePicUrl: chat.profilePicUrl,
+            updatedAt: chat.updatedAt,
+            windowStart: chat.windowStart,
+            windowExpires: chat.windowExpires,
+            windowActive: chat.windowActive
+          } as ChatMetadata
+        };
 
         console.log('Processing chat:', { 
           chatId: chat.id, 
-          contactNumber, 
-          contactId, 
-          remoteJid, 
-          pushName: chat.pushName 
+          contactNumber: chatData.contact_number, 
+          pushName: chatData.push_name 
         });
 
         // VERIFICAÇÃO RIGOROSA: usar contact_number como chave única
         const { data: existingConversation, error: checkError } = await supabase
-          .from('conversations')
-          .select('id, contact_name, metadata')
+          .from('chat')
+          .select('id, push_name, metadata')
           .eq('whatsapp_number_id', whatsappData.id)
-          .eq('contact_number', contactNumber)
+          .eq('contact_number', chatData.contact_number)
           .maybeSingle();
 
         if (checkError) {
@@ -113,71 +127,48 @@ export async function syncChats(instanceName: string, agentId: string, authHeade
           continue;
         }
 
-        // Criar objeto metadata
-        const chatMetadata: ChatMetadata = {
-          id: chat.id,
-          remoteJid: chat.remoteJid || chat.id,
-          pushName: chat.pushName,
-          profilePicUrl: chat.profilePicUrl,
-          updatedAt: chat.updatedAt,
-          windowStart: chat.windowStart,
-          windowExpires: chat.windowExpires,
-          windowActive: chat.windowActive
-        };
-
         if (!existingConversation) {
           // CRIAR NOVA CONVERSA apenas se não existir
-          console.log('Creating new conversation for contactNumber:', contactNumber);
+          console.log('Creating new conversation for contactNumber:', chatData.contact_number);
           
           const { error: conversationError } = await supabase
-            .from('conversations')
-            .insert({
-              whatsapp_number_id: whatsappData.id,
-              contact_number: contactNumber, // Número limpo
-              contact_id: contactId, // JID completo como ID
-              remote_jid: remoteJid, // JID completo
-              contact_name: contactName,
-              last_message_at: chat.lastMessage?.messageTimestamp 
-                ? new Date(chat.lastMessage.messageTimestamp * 1000).toISOString()
-                : new Date().toISOString(),
-              metadata: chatMetadata
-            });
+            .from('chat')
+            .insert(chatData);
 
           if (conversationError) {
             // Se erro de duplicação (constraint violation), pular
             if (conversationError.code === '23505') {
-              console.log('Conversation already exists (constraint violation) for contactNumber:', contactNumber);
+              console.log('Conversation already exists (constraint violation) for contactNumber:', chatData.contact_number);
             } else {
               console.error('Error creating conversation:', conversationError);
             }
           } else {
             conversationsSynced++;
-            console.log('Conversation created for contactNumber:', contactNumber);
+            console.log('Conversation created for contactNumber:', chatData.contact_number);
           }
         } else {
           // ATUALIZAR conversa existente APENAS se necessário
           const needsUpdate = 
-            existingConversation.contact_name !== contactName ||
-            JSON.stringify(existingConversation.metadata) !== JSON.stringify(chatMetadata);
+            existingConversation.push_name !== chatData.push_name ||
+            JSON.stringify(existingConversation.metadata) !== JSON.stringify(chatData.metadata);
 
           if (needsUpdate) {
             const { error: updateError } = await supabase
-              .from('conversations')
+              .from('chat')
               .update({
-                contact_name: contactName,
-                contact_id: contactId, // Atualizar contact_id também
-                remote_jid: remoteJid, // Atualizar remote_jid também
-                metadata: chatMetadata
+                push_name: chatData.push_name,
+                remote_jid: chatData.remote_jid,
+                metadata: chatData.metadata
               })
               .eq('id', existingConversation.id);
 
             if (updateError) {
               console.error('Error updating conversation:', updateError);
             } else {
-              console.log('Conversation updated for contactNumber:', contactNumber);
+              console.log('Conversation updated for contactNumber:', chatData.contact_number);
             }
           } else {
-            console.log('Conversation already up to date for contactNumber:', contactNumber);
+            console.log('Conversation already up to date for contactNumber:', chatData.contact_number);
           }
         }
       }

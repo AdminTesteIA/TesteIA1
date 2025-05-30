@@ -13,7 +13,7 @@ export const useConversations = (userId: string | undefined) => {
 
     try {
       const { data, error } = await supabase
-        .from('conversations')
+        .from('chat')
         .select(`
           *,
           whatsapp_number:whatsapp_numbers(

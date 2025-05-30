@@ -11,9 +11,9 @@ export interface WhatsAppNumber {
 
 export interface Conversation {
   id: string;
-  contact_name: string | null;
-  contact_number: string; // Agora armazena o remoteJid completo
-  contact_id: string | null; // ID do contato (sem @s.whatsapp.net)
+  push_name: string | null;
+  contact_number: string;
+  remote_jid: string | null;
   last_message_at: string;
   whatsapp_number: {
     id: string;

@@ -45,41 +45,38 @@ export type Database = {
         }
         Relationships: []
       }
-      conversations: {
+      chat: {
         Row: {
-          contact_id: string | null
-          contact_name: string | null
           contact_number: string
           created_at: string
-          evolution_chat_id: string | null
           id: string
           last_message_at: string
           metadata: Json | null
-          remote_jid: string | null
+          profilePicUrl: string | null
+          push_name: string | null
+          remote_jid: string
           whatsapp_number_id: string
         }
         Insert: {
-          contact_id?: string | null
-          contact_name?: string | null
           contact_number: string
           created_at?: string
-          evolution_chat_id?: string | null
-          id?: string
+          id: string
           last_message_at?: string
           metadata?: Json | null
-          remote_jid?: string | null
+          profilePicUrl?: string | null
+          push_name?: string | null
+          remote_jid: string
           whatsapp_number_id: string
         }
         Update: {
-          contact_id?: string | null
-          contact_name?: string | null
           contact_number?: string
           created_at?: string
-          evolution_chat_id?: string | null
           id?: string
           last_message_at?: string
           metadata?: Json | null
-          remote_jid?: string | null
+          profilePicUrl?: string | null
+          push_name?: string | null
+          remote_jid?: string
           whatsapp_number_id?: string
         }
         Relationships: [
@@ -187,7 +184,7 @@ export type Database = {
             foreignKeyName: "messages_conversation_id_fkey"
             columns: ["conversation_id"]
             isOneToOne: false
-            referencedRelation: "conversations"
+            referencedRelation: "chat"
             referencedColumns: ["id"]
           },
         ]

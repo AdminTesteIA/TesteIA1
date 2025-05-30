@@ -29,12 +29,12 @@ export async function syncContacts(instanceName: string, agentId: string, authHe
         const contactName = contact.name || contact.pushName || contact.verifiedName;
 
         if (contactName) {
-          // Buscar conversa por contact_number (número limpo)
+          // Buscar conversa por contact_number (número limpo) na tabela chat
           const { error: updateError } = await supabase
-            .from('conversations')
-            .update({ contact_name: contactName })
+            .from('chat')
+            .update({ push_name: contactName })
             .eq('whatsapp_number_id', whatsappData.id)
-            .eq('contact_number', contactNumber); // Usar contact_number ao invés de contact_id
+            .eq('contact_number', contactNumber);
 
           if (!updateError) {
             contactsUpdated++;

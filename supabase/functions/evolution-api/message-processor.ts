@@ -1,8 +1,8 @@
-
 import { supabase } from './supabase-client.ts';
 import { getWhatsAppNumberData, extractMessageContent } from './utils.ts';
+import type { EvolutionMessage, ProcessedMessage } from './types.ts';
 
-export async function processAndSaveMessage(message: any, instanceName: string, agentId: string): Promise<boolean> {
+export async function processAndSaveMessage(message: EvolutionMessage, instanceName: string, agentId: string): Promise<boolean> {
   try {
     console.log('Processing Evolution API message:', {
       id: message.id,
@@ -12,35 +12,8 @@ export async function processAndSaveMessage(message: any, instanceName: string, 
       messageType: message.messageType,
       timestamp: message.messageTimestamp
     });
-    
-    // Verificar se a mensagem tem dados válidos
-    if (!message || !message.key || !message.messageTimestamp || !message.id) {
-      console.log('Skipping invalid message - missing required fields');
-      return false;
-    }
 
-    // Buscar WhatsApp number ID
-    const whatsappData = await getWhatsAppNumberData(instanceName, agentId);
-
-    // Extrair informações da mensagem
-    const isFromContact = !message.key?.fromMe;
-    const remoteJid = message.key?.remoteJid;
-    
-    // Pular grupos
-    if (!remoteJid || remoteJid.includes('@g.us')) {
-      console.log('Skipping group message or invalid remoteJid');
-      return false;
-    }
-
-    // CORREÇÃO: Separar corretamente os campos
-    // contact_number: número limpo (ex: 5511960613827)
-    // contact_id: ID específico do Evolution (ex: cmba0isem04n0td4q0c94bmfx)  
-    // remote_jid: JID completo (ex: 5511960613827@s.whatsapp.net)
-    const contactNumber = remoteJid.replace('@s.whatsapp.net', ''); // Número limpo
-    const contactId = message.id || remoteJid; // ID do Evolution ou JID como fallback
-    const contactRemoteJid = remoteJid; // JID completo
-
-    // VERIFICAÇÃO: Se mensagem já existe usando evolution_id
+    // Verificar se a mensagem já foi processada usando evolution_id
     const { data: existingMessage } = await supabase
       .from('messages')
       .select('id')
@@ -52,120 +25,89 @@ export async function processAndSaveMessage(message: any, instanceName: string, 
       return false;
     }
 
-    // Extrair conteúdo da mensagem
-    const messageContent = extractMessageContent(message);
+    // Buscar WhatsApp number data
+    const whatsappData = await getWhatsAppNumberData(instanceName, agentId);
+    
+    // Extrair informações de contato
+    const remoteJid = message.key?.remoteJid;
+    const contactNumber = remoteJid ? remoteJid.replace('@s.whatsapp.net', '') : '';
+    
+    if (!remoteJid || !contactNumber) {
+      console.log('No valid contact information found for message:', message.id);
+      return false;
+    }
 
-    console.log('Message details:', { 
-      evolutionId: message.id,
-      contactNumber, 
-      contactId,
-      remoteJid: contactRemoteJid, 
-      messageContent: messageContent.substring(0, 50), 
-      isFromContact,
-      timestamp: message.messageTimestamp,
-      messageType: message.messageType
-    });
-
-    // BUSCAR CONVERSA EXISTENTE usando contact_number (número limpo)
-    let { data: conversation, error: conversationError } = await supabase
-      .from('conversations')
-      .select('id')
+    // Buscar ou criar conversa usando a tabela chat
+    let conversation;
+    const { data: existingConversation } = await supabase
+      .from('chat')
+      .select('*')
       .eq('whatsapp_number_id', whatsappData.id)
       .eq('contact_number', contactNumber)
       .maybeSingle();
 
-    if (conversationError) {
-      console.error('Error finding conversation:', conversationError);
-      return false;
-    }
-
-    // SE NÃO EXISTE CONVERSA, criar nova (COM VERIFICAÇÃO DUPLA)
-    if (!conversation) {
-      console.log('Creating new conversation for contactNumber:', contactNumber);
-      
-      // VERIFICAÇÃO DUPLA antes de criar
-      const { data: doubleCheck } = await supabase
-        .from('conversations')
-        .select('id')
-        .eq('whatsapp_number_id', whatsappData.id)
-        .eq('contact_number', contactNumber)
-        .maybeSingle();
-
-      if (doubleCheck) {
-        conversation = doubleCheck;
-        console.log('Conversation found in double check:', conversation.id);
-      } else {
-        // Criar nova conversa APENAS se não existir
-        const { data: newConversation, error: createError } = await supabase
-          .from('conversations')
-          .insert({
-            whatsapp_number_id: whatsappData.id,
-            contact_number: contactNumber, // Número limpo
-            contact_id: contactId, // ID do Evolution
-            remote_jid: contactRemoteJid, // JID completo
-            contact_name: message.pushName || null,
-            last_message_at: new Date(message.messageTimestamp * 1000).toISOString()
-          })
-          .select('id')
-          .single();
-
-        if (createError) {
-          console.error('Error creating conversation:', createError);
-          // Se erro de duplicação, tentar buscar novamente
-          if (createError.code === '23505') {
-            const { data: existingConv } = await supabase
-              .from('conversations')
-              .select('id')
-              .eq('whatsapp_number_id', whatsappData.id)
-              .eq('contact_number', contactNumber)
-              .single();
-            
-            if (existingConv) {
-              conversation = existingConv;
-              console.log('Using existing conversation after conflict:', conversation.id);
-            } else {
-              return false;
-            }
-          } else {
-            return false;
+    if (existingConversation) {
+      conversation = existingConversation;
+    } else {
+      // Criar nova conversa na tabela chat
+      const { data: newConversation, error: conversationError } = await supabase
+        .from('chat')
+        .insert({
+          id: remoteJid, // Usar remoteJid como ID
+          whatsapp_number_id: whatsappData.id,
+          contact_number: contactNumber,
+          push_name: message.pushName || null,
+          remote_jid: remoteJid,
+          last_message_at: new Date(message.messageTimestamp * 1000).toISOString(),
+          metadata: {
+            remoteJid: remoteJid,
+            pushName: message.pushName
           }
-        } else {
-          conversation = newConversation;
-          console.log('New conversation created with ID:', conversation.id);
-        }
+        })
+        .select()
+        .single();
+
+      if (conversationError) {
+        console.error('Error creating conversation:', conversationError);
+        return false;
       }
+
+      conversation = newConversation;
+      console.log('Created new conversation for:', contactNumber);
     }
 
-    console.log('Saving new message with evolution_id:', message.id);
+    // Extrair conteúdo da mensagem
+    const messageContent = extractMessageContent(message);
 
-    // Preparar dados da mensagem
-    const messageTimestamp = new Date(message.messageTimestamp * 1000).toISOString();
-    
+    // Preparar metadados da mensagem
+    const messageMetadata: ProcessedMessage = {
+      messageId: message.key?.id,
+      delivery_status: 'delivered',
+      evolutionData: {
+        messageType: message.messageType,
+        remoteJid: message.key?.remoteJid,
+        fromMe: message.key?.fromMe,
+        participant: message.key?.participant
+      }
+    };
+
+    // Inserir mensagem
     const { error: messageError } = await supabase
       .from('messages')
       .insert({
         conversation_id: conversation.id,
         content: messageContent,
-        is_from_contact: isFromContact,
+        is_from_contact: !message.key?.fromMe,
         message_type: message.messageType || 'text',
-        created_at: messageTimestamp,
         evolution_id: message.id,
         evolution_key: message.key,
-        push_name: message.pushName,
         message_timestamp: message.messageTimestamp,
+        push_name: message.pushName,
         instance_id: message.instanceId,
         source: message.source,
         context_info: message.contextInfo,
-        message_updates: message.MessageUpdate || [],
-        metadata: {
-          delivery_status: 'sent',
-          evolutionData: {
-            messageType: message.messageType,
-            remoteJid: message.key?.remoteJid,
-            fromMe: message.key?.fromMe,
-            participant: message.key?.participant
-          }
-        }
+        message_updates: message.MessageUpdate,
+        metadata: messageMetadata
       });
 
     if (messageError) {
@@ -173,16 +115,15 @@ export async function processAndSaveMessage(message: any, instanceName: string, 
       return false;
     }
 
-    // Atualizar última mensagem da conversa
+    // Atualizar timestamp da conversa
     await supabase
-      .from('conversations')
+      .from('chat')
       .update({ 
-        last_message_at: messageTimestamp,
-        contact_name: message.pushName || null
+        last_message_at: new Date(message.messageTimestamp * 1000).toISOString()
       })
       .eq('id', conversation.id);
 
-    console.log('Message saved successfully with evolution_id:', message.id);
+    console.log('Message processed successfully:', message.id);
     return true;
 
   } catch (error) {
