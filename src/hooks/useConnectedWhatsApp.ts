@@ -14,7 +14,6 @@ interface ConnectedWhatsApp {
 
 export const useConnectedWhatsApp = (userId: string | undefined) => {
   const [connectedWhatsAppNumbers, setConnectedWhatsAppNumbers] = useState<ConnectedWhatsApp[]>([]);
-  const [initialSyncComplete, setInitialSyncComplete] = useState(false);
 
   const fetchConnectedWhatsAppNumbers = async () => {
     if (!userId) return;
@@ -51,40 +50,9 @@ export const useConnectedWhatsApp = (userId: string | undefined) => {
       console.log('Connected WhatsApp numbers found:', userWhatsAppNumbers);
       setConnectedWhatsAppNumbers(userWhatsAppNumbers);
 
-      // Executar sincronização inicial automática silenciosa
-      if (userWhatsAppNumbers.length > 0 && !initialSyncComplete) {
-        await performInitialSync(userWhatsAppNumbers);
-      }
-
     } catch (error) {
       console.error('Erro ao buscar números conectados:', error);
     }
-  };
-
-  const performInitialSync = async (whatsappNumbers: ConnectedWhatsApp[]) => {
-    console.log('Performing silent initial sync for all connected WhatsApp numbers...');
-    
-    for (const whatsappNumber of whatsappNumbers) {
-      try {
-        console.log('Auto-syncing data for:', whatsappNumber.phone_number);
-        
-        // Sincronizar chats silenciosamente
-        await supabase.functions.invoke('evolution-api', {
-          body: {
-            action: 'syncChats',
-            instanceName: whatsappNumber.phone_number,
-            agentId: whatsappNumber.agent.id
-          }
-        });
-
-        console.log('Auto-sync completed for:', whatsappNumber.phone_number);
-        
-      } catch (error) {
-        console.error('Error in auto-sync for:', whatsappNumber.phone_number, error);
-      }
-    }
-    
-    setInitialSyncComplete(true);
   };
 
   useEffect(() => {
@@ -95,7 +63,6 @@ export const useConnectedWhatsApp = (userId: string | undefined) => {
 
   return {
     connectedWhatsAppNumbers,
-    initialSyncComplete,
     fetchConnectedWhatsAppNumbers
   };
 };
