@@ -9,9 +9,14 @@ export const useConversations = (userId: string | undefined) => {
   const [loading, setLoading] = useState(true);
 
   const fetchConversations = async () => {
-    if (!userId) return;
+    if (!userId) {
+      console.log('useConversations: No userId provided');
+      return;
+    }
 
     try {
+      console.log('useConversations: Fetching conversations for userId:', userId);
+      
       const { data, error } = await supabase
         .from('chat')
         .select(`
@@ -20,10 +25,13 @@ export const useConversations = (userId: string | undefined) => {
             id,
             phone_number,
             is_connected,
-            agent:agents(id, name)
+            agent:agents(id, name, user_id)
           )
         `)
         .order('last_message_at', { ascending: false });
+
+      console.log('useConversations: Raw data from database:', data);
+      console.log('useConversations: Database error:', error);
 
       if (error) {
         console.error('Erro ao carregar conversas:', error);
@@ -31,18 +39,31 @@ export const useConversations = (userId: string | undefined) => {
         return;
       }
 
-      // Filtrar apenas conversas de agentes do usuário logado e converter tipos
+      // Filtrar apenas conversas de agentes do usuário logado
       const userConversations: Conversation[] = (data || [])
-        .filter(conversation => 
-          conversation.whatsapp_number?.agent?.id && 
-          // Verificar se o agente pertence ao usuário (isso seria melhor com uma query mais específica)
-          true // Por enquanto mostrar todas, mas idealmente filtrar por user_id
-        )
+        .filter(conversation => {
+          const hasWhatsappNumber = conversation.whatsapp_number;
+          const hasAgent = conversation.whatsapp_number?.agent;
+          const isUserAgent = conversation.whatsapp_number?.agent?.user_id === userId;
+          
+          console.log('useConversations: Filtering conversation:', {
+            conversationId: conversation.id,
+            contactNumber: conversation.contact_number,
+            hasWhatsappNumber,
+            hasAgent,
+            agentUserId: conversation.whatsapp_number?.agent?.user_id,
+            currentUserId: userId,
+            isUserAgent
+          });
+          
+          return hasWhatsappNumber && hasAgent && isUserAgent;
+        })
         .map(conversation => ({
           ...conversation,
           metadata: conversation.metadata as Conversation['metadata']
         }));
 
+      console.log('useConversations: Filtered conversations:', userConversations);
       setConversations(userConversations);
     } catch (error) {
       console.error('Erro ao carregar conversas:', error);
@@ -54,7 +75,11 @@ export const useConversations = (userId: string | undefined) => {
 
   useEffect(() => {
     if (userId) {
+      console.log('useConversations: useEffect triggered with userId:', userId);
       fetchConversations();
+    } else {
+      console.log('useConversations: useEffect called but no userId');
+      setLoading(false);
     }
   }, [userId]);
 

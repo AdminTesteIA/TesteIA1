@@ -23,11 +23,16 @@ export function ConversationsList({
   setSearchTerm,
   onConversationSelect
 }: ConversationsListProps) {
+  console.log('ConversationsList: Rendering with conversations:', conversations);
+  console.log('ConversationsList: Search term:', searchTerm);
+  
   const filteredConversations = conversations.filter(conversation =>
     conversation.push_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     conversation.contact_number?.includes(searchTerm) ||
     conversation.whatsapp_number.agent.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  console.log('ConversationsList: Filtered conversations:', filteredConversations);
 
   const getContactInitials = (name: string | null, contactNumber: string) => {
     if (name) {
@@ -102,6 +107,12 @@ export function ConversationsList({
                   : 'Tente ajustar os filtros de busca'
                 }
               </p>
+              {/* Debug info */}
+              <div className="mt-4 text-xs text-gray-400">
+                <p>Debug: Total conversations: {conversations.length}</p>
+                <p>Debug: Filtered conversations: {filteredConversations.length}</p>
+                <p>Debug: Search term: "{searchTerm}"</p>
+              </div>
             </div>
           ) : (
             <div className="space-y-1">
