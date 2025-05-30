@@ -36,13 +36,14 @@ export function ConversationsList({
     return number.slice(-2);
   };
 
-  // Função para extrair número de telefone do remoteJid
-  const extractPhoneNumber = (conversation: Conversation) => {
+  // Função para extrair e formatar número de telefone
+  const formatPhoneNumber = (conversation: Conversation) => {
+    // Primeiro, tentar extrair do remoteJid se disponível
     if (conversation.metadata?.remoteJid) {
       const phoneMatch = conversation.metadata.remoteJid.match(/(\d+)@/);
       if (phoneMatch) {
         const number = phoneMatch[1];
-        // Formatar o número brasileiro
+        // Formatar o número brasileiro se for válido
         if (number.startsWith('55') && number.length >= 12) {
           const cleanNumber = number.substring(2); // Remove o código do país
           const ddd = cleanNumber.substring(0, 2);
@@ -53,12 +54,38 @@ export function ConversationsList({
         return `+${number}`;
       }
     }
-    return conversation.contact_number;
+    
+    // Se não conseguir extrair do remoteJid, usar contact_number
+    if (conversation.contact_number) {
+      // Verificar se já está formatado
+      if (conversation.contact_number.startsWith('+')) {
+        return conversation.contact_number;
+      }
+      
+      // Tentar formatar se for um número brasileiro
+      const cleanNumber = conversation.contact_number.replace(/\D/g, '');
+      if (cleanNumber.startsWith('55') && cleanNumber.length >= 12) {
+        const withoutCountry = cleanNumber.substring(2);
+        const ddd = withoutCountry.substring(0, 2);
+        const firstPart = withoutCountry.substring(2, 7);
+        const secondPart = withoutCountry.substring(7);
+        return `+55 (${ddd}) ${firstPart}-${secondPart}`;
+      } else if (cleanNumber.length >= 10) {
+        const ddd = cleanNumber.substring(0, 2);
+        const firstPart = cleanNumber.substring(2, 7);
+        const secondPart = cleanNumber.substring(7);
+        return `+55 (${ddd}) ${firstPart}-${secondPart}`;
+      }
+      
+      return conversation.contact_number;
+    }
+    
+    return 'Número não disponível';
   };
 
   // Função para obter o nome do contato
   const getContactName = (conversation: Conversation) => {
-    return conversation.metadata?.pushName || conversation.contact_name;
+    return conversation.metadata?.pushName || conversation.contact_name || 'Contato';
   };
 
   // Função para obter URL da foto de perfil
@@ -102,7 +129,7 @@ export function ConversationsList({
           ) : (
             <div className="space-y-1">
               {filteredConversations.map((conversation) => {
-                const phoneNumber = extractPhoneNumber(conversation);
+                const phoneNumber = formatPhoneNumber(conversation);
                 const contactName = getContactName(conversation);
                 const profilePicUrl = getProfilePicUrl(conversation);
                 
@@ -119,7 +146,7 @@ export function ConversationsList({
                         {profilePicUrl && (
                           <AvatarImage 
                             src={profilePicUrl} 
-                            alt={contactName || phoneNumber}
+                            alt={contactName}
                             onError={(e) => {
                               console.log('Error loading profile pic:', profilePicUrl);
                               e.currentTarget.style.display = 'none';
@@ -134,7 +161,7 @@ export function ConversationsList({
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-1">
                           <h3 className="font-medium truncate text-gray-900">
-                            {contactName || phoneNumber}
+                            {contactName}
                           </h3>
                           <span className="text-xs text-gray-500 flex-shrink-0 ml-2">
                             {formatDistanceToNow(new Date(conversation.last_message_at), { 
