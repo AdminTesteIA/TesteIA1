@@ -25,22 +25,22 @@ export function ConversationsList({
 }: ConversationsListProps) {
   const filteredConversations = conversations.filter(conversation =>
     conversation.contact_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    conversation.contact_number.includes(searchTerm) ||
+    conversation.contact_id?.includes(searchTerm) ||
     conversation.whatsapp_number.agent.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const getContactInitials = (name: string | null, number: string) => {
+  const getContactInitials = (name: string | null, contactId: string) => {
     if (name) {
       return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
     }
-    return number.slice(-2);
+    return contactId.slice(-2);
   };
 
-  // Função para extrair e formatar número de telefone
+  // Função para extrair e formatar número de telefone do contact_number (remoteJid)
   const formatPhoneNumber = (conversation: Conversation) => {
-    // Primeiro, tentar extrair do remoteJid se disponível
-    if (conversation.metadata?.remoteJid) {
-      const phoneMatch = conversation.metadata.remoteJid.match(/(\d+)@/);
+    // contact_number agora armazena o remoteJid completo
+    if (conversation.contact_number) {
+      const phoneMatch = conversation.contact_number.match(/(\d+)@/);
       if (phoneMatch) {
         const number = phoneMatch[1];
         // Formatar o número brasileiro se for válido
@@ -55,15 +55,10 @@ export function ConversationsList({
       }
     }
     
-    // Se não conseguir extrair do remoteJid, usar contact_number
-    if (conversation.contact_number) {
-      // Verificar se já está formatado
-      if (conversation.contact_number.startsWith('+')) {
-        return conversation.contact_number;
-      }
-      
-      // Tentar formatar se for um número brasileiro
-      const cleanNumber = conversation.contact_number.replace(/\D/g, '');
+    // Fallback: tentar usar contact_id se contact_number não estiver disponível
+    if (conversation.contact_id) {
+      // Se contact_id for numérico, formatar
+      const cleanNumber = conversation.contact_id.replace(/\D/g, '');
       if (cleanNumber.startsWith('55') && cleanNumber.length >= 12) {
         const withoutCountry = cleanNumber.substring(2);
         const ddd = withoutCountry.substring(0, 2);
@@ -77,7 +72,7 @@ export function ConversationsList({
         return `+55 (${ddd}) ${firstPart}-${secondPart}`;
       }
       
-      return conversation.contact_number;
+      return conversation.contact_id;
     }
     
     return 'Número não disponível';
@@ -154,7 +149,7 @@ export function ConversationsList({
                           />
                         )}
                         <AvatarFallback className="bg-blue-100 text-blue-600 font-medium">
-                          {getContactInitials(contactName, phoneNumber)}
+                          {getContactInitials(contactName, conversation.contact_id || phoneNumber)}
                         </AvatarFallback>
                       </Avatar>
                       

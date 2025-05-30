@@ -47,6 +47,7 @@ export type Database = {
       }
       conversations: {
         Row: {
+          contact_id: string | null
           contact_name: string | null
           contact_number: string
           created_at: string
@@ -56,6 +57,7 @@ export type Database = {
           whatsapp_number_id: string
         }
         Insert: {
+          contact_id?: string | null
           contact_name?: string | null
           contact_number: string
           created_at?: string
@@ -65,6 +67,7 @@ export type Database = {
           whatsapp_number_id: string
         }
         Update: {
+          contact_id?: string | null
           contact_name?: string | null
           contact_number?: string
           created_at?: string

@@ -505,7 +505,9 @@ async function syncChats(instanceName: string, agentId: string, authHeaders: any
     let conversationsSynced = 0;
     for (const chat of chats) {
       if (chat.id && !chat.id.includes('@g.us')) { // Apenas chats individuais, não grupos
-        const contactNumber = chat.id.replace('@s.whatsapp.net', '');
+        // NOVA ESTRUTURA: contact_id armazena o ID do chat, contact_number armazena o remoteJid
+        const contactId = chat.id.replace('@s.whatsapp.net', '');
+        const contactNumber = chat.id; // Armazenar o remoteJid completo
         const contactName = chat.pushName || null;
 
         // Criar objeto metadata com os dados do chat
@@ -520,21 +522,22 @@ async function syncChats(instanceName: string, agentId: string, authHeaders: any
           windowActive: chat.windowActive
         };
 
-        // Verificar se a conversa já existe
+        // Verificar se a conversa já existe (buscar por contact_id)
         const { data: existingConversation } = await supabase
           .from('conversations')
           .select('id')
           .eq('whatsapp_number_id', whatsappData.id)
-          .eq('contact_number', contactNumber)
+          .eq('contact_id', contactId)
           .maybeSingle();
 
         if (!existingConversation) {
-          // Criar nova conversa com metadata
+          // Criar nova conversa com a nova estrutura
           const { error: conversationError } = await supabase
             .from('conversations')
             .insert({
               whatsapp_number_id: whatsappData.id,
-              contact_number: contactNumber,
+              contact_id: contactId, // ID do contato sem @s.whatsapp.net
+              contact_number: contactNumber, // remoteJid completo
               contact_name: contactName,
               last_message_at: chat.lastMessage?.messageTimestamp 
                 ? new Date(chat.lastMessage.messageTimestamp * 1000).toISOString()
@@ -546,14 +549,15 @@ async function syncChats(instanceName: string, agentId: string, authHeaders: any
             console.error('Error creating conversation:', conversationError);
           } else {
             conversationsSynced++;
-            console.log('Conversation created for:', contactNumber, 'with metadata:', chatMetadata);
+            console.log('Conversation created for:', contactId, 'with remoteJid:', contactNumber, 'and metadata:', chatMetadata);
           }
         } else {
-          // Atualizar conversa existente com metadata
+          // Atualizar conversa existente com metadata e nova estrutura
           const { error: updateError } = await supabase
             .from('conversations')
             .update({
               contact_name: contactName,
+              contact_number: contactNumber, // Atualizar com remoteJid
               metadata: chatMetadata
             })
             .eq('id', existingConversation.id);
@@ -561,7 +565,7 @@ async function syncChats(instanceName: string, agentId: string, authHeaders: any
           if (updateError) {
             console.error('Error updating conversation:', updateError);
           } else {
-            console.log('Conversation updated for:', contactNumber, 'with metadata:', chatMetadata);
+            console.log('Conversation updated for:', contactId, 'with remoteJid:', contactNumber, 'and metadata:', chatMetadata);
           }
         }
       }
@@ -621,15 +625,16 @@ async function syncContacts(instanceName: string, agentId: string, authHeaders: 
     let contactsUpdated = 0;
     for (const contact of contacts) {
       if (contact.id && !contact.id.includes('@g.us')) {
-        const contactNumber = contact.id.replace('@s.whatsapp.net', '');
+        const contactId = contact.id.replace('@s.whatsapp.net', '');
         const contactName = contact.name || contact.pushName || contact.verifiedName;
 
         if (contactName) {
+          // Buscar conversa por contact_id (nova estrutura)
           const { error: updateError } = await supabase
             .from('conversations')
             .update({ contact_name: contactName })
             .eq('whatsapp_number_id', whatsappData.id)
-            .eq('contact_number', contactNumber);
+            .eq('contact_id', contactId);
 
           if (!updateError) {
             contactsUpdated++;
@@ -674,21 +679,21 @@ async function processAndSaveMessage(message: any, instanceName: string, agentId
 
     // Extrair informações da mensagem
     const isFromContact = !message.key?.fromMe;
-    const contactNumber = message.key?.remoteJid?.replace('@s.whatsapp.net', '');
+    const contactId = message.key?.remoteJid?.replace('@s.whatsapp.net', '');
     const messageContent = message.message?.conversation || 
                           message.message?.extendedTextMessage?.text || 
                           '[Media]';
 
-    if (!contactNumber || contactNumber.includes('@g.us')) {
+    if (!contactId || message.key?.remoteJid?.includes('@g.us')) {
       return false; // Pular grupos e mensagens inválidas
     }
 
-    // Buscar ou criar conversa
+    // Buscar conversa por contact_id (nova estrutura)
     let { data: conversation, error: conversationError } = await supabase
       .from('conversations')
       .select('id')
       .eq('whatsapp_number_id', whatsappData.id)
-      .eq('contact_number', contactNumber)
+      .eq('contact_id', contactId)
       .maybeSingle();
 
     if (conversationError) {
@@ -697,12 +702,13 @@ async function processAndSaveMessage(message: any, instanceName: string, agentId
     }
 
     if (!conversation) {
-      // Criar nova conversa
+      // Criar nova conversa com a nova estrutura
       const { data: newConversation, error: createError } = await supabase
         .from('conversations')
         .insert({
           whatsapp_number_id: whatsappData.id,
-          contact_number: contactNumber,
+          contact_id: contactId, // ID sem @s.whatsapp.net
+          contact_number: message.key?.remoteJid, // remoteJid completo
           contact_name: message.pushName || null,
           last_message_at: new Date(message.messageTimestamp * 1000).toISOString()
         })
