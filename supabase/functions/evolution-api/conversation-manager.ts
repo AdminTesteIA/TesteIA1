@@ -9,7 +9,7 @@ export async function syncConversationMessages(instanceName: string, agentId: st
   console.log('Syncing conversation messages for instance:', instanceName, 'remoteJid:', remoteJid);
 
   try {
-    // Buscar mensagens específicas para este remoteJid usando o método correto da API
+    // Buscar mensagens específicas para este remoteJid
     const responseData = await fetchFromEvolutionAPI('/chat/findMessages', instanceName, authHeaders, {
       where: {
         key: {
@@ -21,7 +21,7 @@ export async function syncConversationMessages(instanceName: string, agentId: st
 
     console.log('Raw response from Evolution API for remoteJid:', remoteJid);
 
-    // A resposta pode vir em diferentes formatos, vamos verificar
+    // A resposta pode vir em diferentes formatos
     let messages = [];
     if (responseData && responseData.messages && Array.isArray(responseData.messages.records)) {
       messages = responseData.messages.records;
@@ -31,7 +31,6 @@ export async function syncConversationMessages(instanceName: string, agentId: st
 
     console.log('Parsed messages for remoteJid:', remoteJid, 'count:', messages.length);
 
-    // Verificar se messages é um array válido
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       console.log('No conversation messages found for remoteJid:', remoteJid);
       return new Response(JSON.stringify({ 
@@ -44,7 +43,7 @@ export async function syncConversationMessages(instanceName: string, agentId: st
       });
     }
 
-    // Processar e salvar mensagens no banco - SEM DUPLICAÇÃO
+    // Processar mensagens SEM DUPLICAÇÃO
     let messagesSynced = 0;
     for (const message of messages) {
       console.log('Processing message for remoteJid:', remoteJid);
@@ -72,7 +71,6 @@ export async function syncChats(instanceName: string, agentId: string, authHeade
   console.log('Syncing chats for instance:', instanceName);
 
   try {
-    // Usar a URL correta conforme a documentação oficial: POST com filtro
     const chats = await fetchFromEvolutionAPI('/chat/findChats', instanceName, authHeaders, {
       where: {
         owner: instanceName
@@ -84,20 +82,33 @@ export async function syncChats(instanceName: string, agentId: string, authHeade
     // Buscar WhatsApp number ID
     const whatsappData = await getWhatsAppNumberData(instanceName, agentId);
 
-    // Processar e salvar conversas com metadata completo - PREVENINDO DUPLICAÇÃO
+    // Processar chats SEM DUPLICAÇÃO baseado em contact_id
     let conversationsSynced = 0;
     for (const chat of chats) {
-      if (chat.id && !chat.id.includes('@g.us')) { // Apenas chats individuais, não grupos
-        const contactId = chat.id;
-        const contactNumber = chat.remoteJid;
+      if (chat.id && !chat.id.includes('@g.us')) { // Apenas chats individuais
+        const contactId = chat.id.replace('@s.whatsapp.net', '');
+        const remoteJid = chat.id;
         const contactName = chat.pushName || null;
 
-        console.log('Processing chat:', { chatId: chat.id, remoteJid: chat.remoteJid, pushName: chat.pushName });
+        console.log('Processing chat:', { chatId: chat.id, contactId, remoteJid, pushName: chat.pushName });
 
-        // Criar objeto metadata com os dados do chat
+        // VERIFICAÇÃO RIGOROSA: usar contact_id como chave única
+        const { data: existingConversation, error: checkError } = await supabase
+          .from('conversations')
+          .select('id, contact_name, metadata')
+          .eq('whatsapp_number_id', whatsappData.id)
+          .eq('contact_id', contactId)
+          .maybeSingle();
+
+        if (checkError) {
+          console.error('Error checking existing conversation:', checkError);
+          continue;
+        }
+
+        // Criar objeto metadata
         const chatMetadata: ChatMetadata = {
           id: chat.id,
-          remoteJid: chat.remoteJid,
+          remoteJid: chat.remoteJid || chat.id,
           pushName: chat.pushName,
           profilePicUrl: chat.profilePicUrl,
           updatedAt: chat.updatedAt,
@@ -106,23 +117,17 @@ export async function syncChats(instanceName: string, agentId: string, authHeade
           windowActive: chat.windowActive
         };
 
-        // VERIFICAÇÃO MAIS RIGOROSA: Verificar se a conversa já existe usando múltiplos critérios
-        const { data: existingConversation } = await supabase
-          .from('conversations')
-          .select('id')
-          .eq('whatsapp_number_id', whatsappData.id)
-          .or(`contact_id.eq.${contactId},remote_jid.eq.${contactNumber}`)
-          .maybeSingle();
-
         if (!existingConversation) {
-          // Criar nova conversa com a estrutura correta
+          // CRIAR NOVA CONVERSA apenas se não existir
+          console.log('Creating new conversation for contactId:', contactId);
+          
           const { error: conversationError } = await supabase
             .from('conversations')
             .insert({
               whatsapp_number_id: whatsappData.id,
-              contact_id: contactId, // ID do chat
-              contact_number: contactNumber, // remoteJid completo
-              remote_jid: contactNumber, // Adicionando remote_jid também
+              contact_id: contactId,
+              contact_number: remoteJid,
+              remote_jid: remoteJid,
               contact_name: contactName,
               last_message_at: chat.lastMessage?.messageTimestamp 
                 ? new Date(chat.lastMessage.messageTimestamp * 1000).toISOString()
@@ -131,27 +136,40 @@ export async function syncChats(instanceName: string, agentId: string, authHeade
             });
 
           if (conversationError) {
-            console.error('Error creating conversation:', conversationError);
+            // Se erro de duplicação (constraint violation), pular
+            if (conversationError.code === '23505') {
+              console.log('Conversation already exists (constraint violation) for contactId:', contactId);
+            } else {
+              console.error('Error creating conversation:', conversationError);
+            }
           } else {
             conversationsSynced++;
-            console.log('Conversation created for:', contactId, 'with remoteJid:', contactNumber, 'and metadata:', chatMetadata);
+            console.log('Conversation created for contactId:', contactId);
           }
         } else {
-          // Atualizar conversa existente com metadata e estrutura correta
-          const { error: updateError } = await supabase
-            .from('conversations')
-            .update({
-              contact_name: contactName,
-              contact_number: contactNumber, // Atualizar com remoteJid
-              remote_jid: contactNumber, // Garantir que remote_jid está preenchido
-              metadata: chatMetadata
-            })
-            .eq('id', existingConversation.id);
+          // ATUALIZAR conversa existente APENAS se necessário
+          const needsUpdate = 
+            existingConversation.contact_name !== contactName ||
+            JSON.stringify(existingConversation.metadata) !== JSON.stringify(chatMetadata);
 
-          if (updateError) {
-            console.error('Error updating conversation:', updateError);
+          if (needsUpdate) {
+            const { error: updateError } = await supabase
+              .from('conversations')
+              .update({
+                contact_name: contactName,
+                contact_number: remoteJid,
+                remote_jid: remoteJid,
+                metadata: chatMetadata
+              })
+              .eq('id', existingConversation.id);
+
+            if (updateError) {
+              console.error('Error updating conversation:', updateError);
+            } else {
+              console.log('Conversation updated for contactId:', contactId);
+            }
           } else {
-            console.log('Conversation updated for:', contactId, 'with remoteJid:', contactNumber, 'and metadata:', chatMetadata);
+            console.log('Conversation already up to date for contactId:', contactId);
           }
         }
       }

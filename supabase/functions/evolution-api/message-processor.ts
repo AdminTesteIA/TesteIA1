@@ -33,7 +33,7 @@ export async function processAndSaveMessage(message: any, instanceName: string, 
       return false;
     }
 
-    // PRIMEIRA VERIFICAÇÃO: Verificar se a mensagem já existe usando evolution_id
+    // VERIFICAÇÃO: Se mensagem já existe usando evolution_id
     const { data: existingMessage } = await supabase
       .from('messages')
       .select('id')
@@ -58,12 +58,12 @@ export async function processAndSaveMessage(message: any, instanceName: string, 
       messageType: message.messageType
     });
 
-    // Buscar ou criar conversa usando remote_jid
+    // BUSCAR CONVERSA EXISTENTE usando contact_id ÚNICO para evitar duplicação
     let { data: conversation, error: conversationError } = await supabase
       .from('conversations')
       .select('id')
       .eq('whatsapp_number_id', whatsappData.id)
-      .eq('remote_jid', remoteJid)
+      .eq('contact_id', contactId)
       .maybeSingle();
 
     if (conversationError) {
@@ -71,22 +71,23 @@ export async function processAndSaveMessage(message: any, instanceName: string, 
       return false;
     }
 
+    // SE NÃO EXISTE CONVERSA, criar nova (COM VERIFICAÇÃO DUPLA)
     if (!conversation) {
-      console.log('Creating new conversation for remoteJid:', remoteJid);
+      console.log('Creating new conversation for contactId:', contactId);
       
-      // VERIFICAÇÃO DUPLA: Verificar novamente se a conversa não foi criada por outro processo
+      // VERIFICAÇÃO DUPLA antes de criar
       const { data: doubleCheck } = await supabase
         .from('conversations')
         .select('id')
         .eq('whatsapp_number_id', whatsappData.id)
-        .eq('remote_jid', remoteJid)
+        .eq('contact_id', contactId)
         .maybeSingle();
 
       if (doubleCheck) {
         conversation = doubleCheck;
         console.log('Conversation found in double check:', conversation.id);
       } else {
-        // Criar nova conversa
+        // Criar nova conversa APENAS se não existir
         const { data: newConversation, error: createError } = await supabase
           .from('conversations')
           .insert({
@@ -102,17 +103,34 @@ export async function processAndSaveMessage(message: any, instanceName: string, 
 
         if (createError) {
           console.error('Error creating conversation:', createError);
-          return false;
+          // Se erro de duplicação, tentar buscar novamente
+          if (createError.code === '23505') {
+            const { data: existingConv } = await supabase
+              .from('conversations')
+              .select('id')
+              .eq('whatsapp_number_id', whatsappData.id)
+              .eq('contact_id', contactId)
+              .single();
+            
+            if (existingConv) {
+              conversation = existingConv;
+              console.log('Using existing conversation after conflict:', conversation.id);
+            } else {
+              return false;
+            }
+          } else {
+            return false;
+          }
+        } else {
+          conversation = newConversation;
+          console.log('New conversation created with ID:', conversation.id);
         }
-
-        conversation = newConversation;
-        console.log('New conversation created with ID:', conversation.id);
       }
     }
 
     console.log('Saving new message with evolution_id:', message.id);
 
-    // Preparar dados da mensagem com estrutura completa da Evolution API
+    // Preparar dados da mensagem
     const messageTimestamp = new Date(message.messageTimestamp * 1000).toISOString();
     
     const { error: messageError } = await supabase
@@ -123,7 +141,6 @@ export async function processAndSaveMessage(message: any, instanceName: string, 
         is_from_contact: isFromContact,
         message_type: message.messageType || 'text',
         created_at: messageTimestamp,
-        // Novos campos da Evolution API
         evolution_id: message.id,
         evolution_key: message.key,
         push_name: message.pushName,
