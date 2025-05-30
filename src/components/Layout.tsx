@@ -5,13 +5,11 @@ import { Badge } from '@/components/ui/badge';
 import { Bot, LogOut, Menu, MessageSquare, Settings, User, Bell } from 'lucide-react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
 import { useState } from 'react';
-import { useRealtimeConversations } from '@/hooks/useRealtimeConversations';
 
 export const Layout = () => {
   const { user, signOut } = useAuth();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { newMessagesCount } = useRealtimeConversations();
   
   const navigation = [
     {
@@ -27,8 +25,7 @@ export const Layout = () => {
     {
       name: 'Conversas',
       href: '/conversations',
-      icon: MessageSquare,
-      badge: newMessagesCount > 0 ? newMessagesCount : undefined
+      icon: MessageSquare
     }
   ];
   
@@ -61,30 +58,12 @@ export const Layout = () => {
                 >
                   <item.icon className="h-4 w-4" />
                   <span>{item.name}</span>
-                  {item.badge && (
-                    <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs">
-                      {item.badge > 99 ? '99+' : item.badge}
-                    </Badge>
-                  )}
                 </Link>
               ))}
             </nav>
 
             {/* User Menu */}
             <div className="flex items-center space-x-4">
-              {/* Notification Bell */}
-              {newMessagesCount > 0 && (
-                <div className="relative">
-                  <Bell className="h-5 w-5 text-gray-600" />
-                  <Badge 
-                    variant="destructive" 
-                    className="absolute -top-2 -right-2 h-4 w-4 p-0 flex items-center justify-center text-xs"
-                  >
-                    {newMessagesCount > 9 ? '9+' : newMessagesCount}
-                  </Badge>
-                </div>
-              )}
-              
               <div className="hidden md:flex items-center space-x-2 text-sm text-gray-600">
                 <User className="h-4 w-4" />
                 <span>{user?.email}</span>
@@ -119,11 +98,6 @@ export const Layout = () => {
                 >
                   <item.icon className="h-5 w-5" />
                   <span>{item.name}</span>
-                  {item.badge && (
-                    <Badge variant="destructive" className="ml-auto">
-                      {item.badge}
-                    </Badge>
-                  )}
                 </Link>
               ))}
             </div>
