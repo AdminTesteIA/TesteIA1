@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { MessageSquare, Send, Phone, User } from 'lucide-react';
+import { MessageSquare, Send, Phone, User, RefreshCw } from 'lucide-react';
 import { MessageDeliveryStatus } from '@/components/MessageDeliveryStatus';
 import type { Conversation, Message } from '@/types/conversations';
 
@@ -13,6 +13,7 @@ interface ChatAreaProps {
   newMessage: string;
   setNewMessage: (message: string) => void;
   sendingMessage: boolean;
+  syncingMessages?: boolean;
   onSendMessage: () => void;
 }
 
@@ -52,6 +53,7 @@ export function ChatArea({
   newMessage,
   setNewMessage,
   sendingMessage,
+  syncingMessages = false,
   onSendMessage
 }: ChatAreaProps) {
   if (!selectedConversation) {
@@ -93,6 +95,12 @@ export function ChatArea({
                 <MessageSquare className="h-3 w-3" />
                 <span>via {selectedConversation.whatsapp_number.agent.name}</span>
               </div>
+              {syncingMessages && (
+                <div className="flex items-center space-x-1">
+                  <RefreshCw className="h-3 w-3 animate-spin" />
+                  <span>Sincronizando...</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -104,7 +112,9 @@ export function ChatArea({
           {messages.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               <MessageSquare className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-              <p>Nenhuma mensagem ainda</p>
+              <p>
+                {syncingMessages ? 'Carregando mensagens...' : 'Nenhuma mensagem ainda'}
+              </p>
             </div>
           ) : (
             messages.map((message) => (

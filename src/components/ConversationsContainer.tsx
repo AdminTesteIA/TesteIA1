@@ -34,7 +34,8 @@ export function ConversationsContainer({ userId }: ConversationsContainerProps) 
     setMessages, 
     newMessage, 
     setNewMessage, 
-    sendingMessage, 
+    sendingMessage,
+    syncingMessages,
     sendMessage 
   } = useMessages(selectedConversation);
 
@@ -125,6 +126,7 @@ export function ConversationsContainer({ userId }: ConversationsContainerProps) 
               newMessage={newMessage}
               setNewMessage={setNewMessage}
               sendingMessage={sendingMessage}
+              syncingMessages={syncingMessages}
               onSendMessage={sendMessage}
             />
           </div>

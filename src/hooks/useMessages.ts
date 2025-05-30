@@ -8,6 +8,7 @@ export const useMessages = (selectedConversation: Conversation | null) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [syncingMessages, setSyncingMessages] = useState(false);
 
   const fetchMessages = async (conversationId: string) => {
     try {
@@ -42,6 +43,39 @@ export const useMessages = (selectedConversation: Conversation | null) => {
     } catch (error) {
       console.error('Erro ao carregar mensagens:', error);
       toast.error('Erro ao carregar mensagens');
+    }
+  };
+
+  const syncMessagesFromEvolution = async (conversation: Conversation) => {
+    if (!conversation || syncingMessages) return;
+
+    setSyncingMessages(true);
+    console.log('Sincronizando mensagens para conversa:', conversation.contact_number);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('evolution-api', {
+        body: {
+          action: 'syncConversationMessages',
+          instanceName: conversation.whatsapp_number.phone_number,
+          agentId: conversation.whatsapp_number.agent.id,
+          remoteJid: conversation.contact_number // Usar o remoteJid para filtrar
+        }
+      });
+
+      if (error) {
+        console.error('Erro ao sincronizar mensagens:', error);
+        return;
+      }
+
+      console.log('Mensagens sincronizadas:', data);
+      
+      // Recarregar mensagens após sincronização
+      await fetchMessages(conversation.id);
+
+    } catch (error) {
+      console.error('Erro na sincronização de mensagens:', error);
+    } finally {
+      setSyncingMessages(false);
     }
   };
 
@@ -130,7 +164,11 @@ export const useMessages = (selectedConversation: Conversation | null) => {
 
   useEffect(() => {
     if (selectedConversation) {
+      // Carregar mensagens do banco primeiro
       fetchMessages(selectedConversation.id);
+      
+      // Sincronizar mensagens da Evolution API automaticamente
+      syncMessagesFromEvolution(selectedConversation);
     }
   }, [selectedConversation]);
 
@@ -140,6 +178,7 @@ export const useMessages = (selectedConversation: Conversation | null) => {
     newMessage,
     setNewMessage,
     sendingMessage,
+    syncingMessages,
     sendMessage,
     fetchMessages
   };

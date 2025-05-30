@@ -21,8 +21,8 @@ serve(async (req) => {
   }
 
   try {
-    const { action, instanceName, agentId, message, to, number } = await req.json();
-    console.log('Evolution API action:', action, { instanceName, agentId, to, number });
+    const { action, instanceName, agentId, message, to, number, remoteJid } = await req.json();
+    console.log('Evolution API action:', action, { instanceName, agentId, to, number, remoteJid });
 
     const authHeaders = {
       'apikey': EVOLUTION_API_KEY,
@@ -50,6 +50,9 @@ serve(async (req) => {
       
       case 'syncMessages':
         return await syncMessages(instanceName, agentId, authHeaders);
+
+      case 'syncConversationMessages':
+        return await syncConversationMessages(instanceName, agentId, remoteJid, authHeaders);
 
       case 'syncChats':
         return await syncChats(instanceName, agentId, authHeaders);
@@ -464,6 +467,65 @@ async function syncMessages(instanceName: string, agentId: string, authHeaders: 
   }
 }
 
+async function syncConversationMessages(instanceName: string, agentId: string, remoteJid: string, authHeaders: any) {
+  console.log('Syncing conversation messages for instance:', instanceName, 'remoteJid:', remoteJid);
+
+  try {
+    // Buscar mensagens filtradas por remoteJid específico
+    const response = await fetch(`${EVOLUTION_API_URL}/chat/findMessages/${instanceName}`, {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({
+        where: {
+          key: {
+            remoteJid: remoteJid
+          }
+        }
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('Error fetching conversation messages:', errorData);
+      throw new Error(`Failed to fetch conversation messages: ${errorData}`);
+    }
+
+    const messages = await response.json();
+    console.log('Conversation messages fetched from Evolution API:', messages ? messages.length : 'undefined or empty', 'for remoteJid:', remoteJid);
+
+    // Verificar se messages é um array válido
+    if (!messages || !Array.isArray(messages)) {
+      console.log('No conversation messages found or invalid response format');
+      return new Response(JSON.stringify({ 
+        success: true, 
+        messagesSynced: 0,
+        message: 'No conversation messages found or invalid response format'
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Processar e salvar mensagens no banco
+    let messagesSynced = 0;
+    for (const message of messages) {
+      const processed = await processAndSaveMessage(message, instanceName, agentId);
+      if (processed) messagesSynced++;
+    }
+
+    return new Response(JSON.stringify({ 
+      success: true, 
+      messagesSynced,
+      remoteJid 
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+
+  } catch (error) {
+    console.error('Error syncing conversation messages:', error);
+    throw error;
+  }
+}
+
 async function syncChats(instanceName: string, agentId: string, authHeaders: any) {
   console.log('Syncing chats for instance:', instanceName);
 
@@ -505,9 +567,8 @@ async function syncChats(instanceName: string, agentId: string, authHeaders: any
     let conversationsSynced = 0;
     for (const chat of chats) {
       if (chat.id && !chat.id.includes('@g.us')) { // Apenas chats individuais, não grupos
-        // CORREÇÃO: contact_id armazena o ID do chat, contact_number armazena o remoteJid
         const contactId = chat.id;
-        const contactNumber = chat.remoteJid; // AQUI ESTÁ A CORREÇÃO!
+        const contactNumber = chat.remoteJid;
         const contactName = chat.pushName || null;
 
         console.log('Processing chat:', { chatId: chat.id, remoteJid: chat.remoteJid, pushName: chat.pushName });
