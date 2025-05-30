@@ -41,7 +41,16 @@ export function ConversationsList({
     if (conversation.metadata?.remoteJid) {
       const phoneMatch = conversation.metadata.remoteJid.match(/(\d+)@/);
       if (phoneMatch) {
-        return phoneMatch[1];
+        const number = phoneMatch[1];
+        // Formatar o número brasileiro
+        if (number.startsWith('55') && number.length >= 12) {
+          const cleanNumber = number.substring(2); // Remove o código do país
+          const ddd = cleanNumber.substring(0, 2);
+          const firstPart = cleanNumber.substring(2, 7);
+          const secondPart = cleanNumber.substring(7);
+          return `+55 (${ddd}) ${firstPart}-${secondPart}`;
+        }
+        return `+${number}`;
       }
     }
     return conversation.contact_number;
