@@ -2,7 +2,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { MessageSquare, Phone, User, Search } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { MessageSquare, Search } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { Conversation } from '@/types/conversations';
@@ -27,6 +28,13 @@ export function ConversationsList({
     conversation.contact_number.includes(searchTerm) ||
     conversation.whatsapp_number.agent.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const getContactInitials = (name: string | null, number: string) => {
+    if (name) {
+      return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    }
+    return number.slice(-2);
+  };
 
   return (
     <Card className="h-full">
@@ -71,34 +79,39 @@ export function ConversationsList({
                   }`}
                   onClick={() => onConversationSelect(conversation)}
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center space-x-2 flex-1 min-w-0">
-                      <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                      <span className="font-medium truncate">
-                        {conversation.contact_name || conversation.contact_number}
-                      </span>
+                  <div className="flex items-center space-x-3">
+                    <Avatar className="h-12 w-12">
+                      <AvatarImage 
+                        src={`https://api.dicebear.com/7.x/initials/svg?seed=${conversation.contact_name || conversation.contact_number}`} 
+                        alt={conversation.contact_name || conversation.contact_number}
+                      />
+                      <AvatarFallback className="bg-blue-100 text-blue-600 font-medium">
+                        {getContactInitials(conversation.contact_name, conversation.contact_number)}
+                      </AvatarFallback>
+                    </Avatar>
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-medium truncate text-gray-900">
+                          {conversation.contact_name || conversation.contact_number}
+                        </h3>
+                        <span className="text-xs text-gray-500 flex-shrink-0 ml-2">
+                          {formatDistanceToNow(new Date(conversation.last_message_at), { 
+                            addSuffix: true, 
+                            locale: ptBR 
+                          })}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm text-gray-600 truncate">
+                          {conversation.contact_number}
+                        </p>
+                        <Badge variant="outline" className="text-xs ml-2">
+                          {conversation.whatsapp_number.agent.name}
+                        </Badge>
+                      </div>
                     </div>
-                    <span className="text-xs text-gray-500 flex-shrink-0 ml-2">
-                      {formatDistanceToNow(new Date(conversation.last_message_at), { 
-                        addSuffix: true, 
-                        locale: ptBR 
-                      })}
-                    </span>
-                  </div>
-                  <div className="flex items-center space-x-2 text-sm text-gray-600 mb-2">
-                    <Phone className="h-3 w-3" />
-                    <span className="truncate">{conversation.contact_number}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <Badge variant="outline" className="text-xs">
-                      {conversation.whatsapp_number.agent.name}
-                    </Badge>
-                    <Badge 
-                      variant={conversation.whatsapp_number.is_connected ? "default" : "secondary"}
-                      className="text-xs"
-                    >
-                      {conversation.whatsapp_number.is_connected ? "Conectado" : "Desconectado"}
-                    </Badge>
                   </div>
                 </div>
               ))}
