@@ -180,31 +180,61 @@ export type Database = {
       messages: {
         Row: {
           chat_id: string
+          content: string | null
+          context_info: Json | null
           created_at: string
+          evolution_id: string | null
+          evolution_key: Json | null
           id: string
+          instance_id: string | null
           instanceId: string
+          is_from_contact: boolean | null
+          message_type: string | null
+          message_updates: Json | null
           messageTimestamp: string | null
           messageType: string | null
+          metadata: Json | null
+          push_name: string | null
           remoteJid: string
           source: string | null
         }
         Insert: {
           chat_id: string
+          content?: string | null
+          context_info?: Json | null
           created_at?: string
+          evolution_id?: string | null
+          evolution_key?: Json | null
           id: string
+          instance_id?: string | null
           instanceId: string
+          is_from_contact?: boolean | null
+          message_type?: string | null
+          message_updates?: Json | null
           messageTimestamp?: string | null
           messageType?: string | null
+          metadata?: Json | null
+          push_name?: string | null
           remoteJid: string
           source?: string | null
         }
         Update: {
           chat_id?: string
+          content?: string | null
+          context_info?: Json | null
           created_at?: string
+          evolution_id?: string | null
+          evolution_key?: Json | null
           id?: string
+          instance_id?: string | null
           instanceId?: string
+          is_from_contact?: boolean | null
+          message_type?: string | null
+          message_updates?: Json | null
           messageTimestamp?: string | null
           messageType?: string | null
+          metadata?: Json | null
+          push_name?: string | null
           remoteJid?: string
           source?: string | null
         }

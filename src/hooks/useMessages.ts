@@ -29,10 +29,10 @@ export const useMessages = (selectedConversation: Conversation | null) => {
         const metadata = msg.metadata as MessageMetadata | null;
         return {
           id: msg.id,
-          content: msg.content,
-          is_from_contact: msg.is_from_contact,
+          content: msg.content || '',
+          is_from_contact: msg.is_from_contact || false,
           created_at: msg.created_at,
-          message_type: msg.message_type,
+          message_type: msg.message_type || 'text',
           conversation_id: msg.chat_id,
           metadata: metadata,
           delivery_status: metadata?.delivery_status || 'sent'
@@ -58,7 +58,7 @@ export const useMessages = (selectedConversation: Conversation | null) => {
           action: 'syncConversationMessages',
           instanceName: conversation.whatsapp_number.phone_number,
           agentId: conversation.whatsapp_number.agent.id,
-          remoteJid: conversation.contact_number // Usar o remoteJid para filtrar
+          remoteJid: conversation.remote_jid // Usar o remote_jid para filtrar
         }
       });
 
@@ -89,10 +89,13 @@ export const useMessages = (selectedConversation: Conversation | null) => {
       const { data, error } = await supabase
         .from('messages')
         .insert({
+          id: crypto.randomUUID(), // Gerar um ID único
           chat_id: selectedConversation.id,
           content: newMessage.trim(),
           is_from_contact: false,
           message_type: 'text',
+          remoteJid: selectedConversation.remote_jid || selectedConversation.contact_number + '@s.whatsapp.net',
+          instanceId: selectedConversation.whatsapp_number.phone_number,
           metadata: { delivery_status: 'sending' }
         })
         .select()

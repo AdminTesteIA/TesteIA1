@@ -26,10 +26,20 @@ export const useRealtimeSubscriptions = ({
           table: 'messages'
         },
         (payload) => {
-          const newMessage = payload.new as Message;
-          if (selectedConversation && newMessage.conversation_id === selectedConversation.id) {
+          const newMessage = payload.new as any; // Usar any temporariamente para os dados do banco
+          if (selectedConversation && newMessage.chat_id === selectedConversation.id) {
             const metadata = newMessage.metadata as MessageMetadata;
-            setMessages(prev => [...prev, { ...newMessage, delivery_status: metadata?.delivery_status || 'sent' }]);
+            const mappedMessage: Message = {
+              id: newMessage.id,
+              content: newMessage.content || '',
+              is_from_contact: newMessage.is_from_contact || false,
+              created_at: newMessage.created_at,
+              message_type: newMessage.message_type || 'text',
+              conversation_id: newMessage.chat_id,
+              metadata: metadata,
+              delivery_status: metadata?.delivery_status || 'sent'
+            };
+            setMessages(prev => [...prev, mappedMessage]);
           }
           onConversationUpdate(); // Atualizar lista de conversas
         }
@@ -42,12 +52,22 @@ export const useRealtimeSubscriptions = ({
           table: 'messages'
         },
         (payload) => {
-          const updatedMessage = payload.new as Message;
-          if (selectedConversation && updatedMessage.conversation_id === selectedConversation.id) {
+          const updatedMessage = payload.new as any; // Usar any temporariamente para os dados do banco
+          if (selectedConversation && updatedMessage.chat_id === selectedConversation.id) {
             const metadata = updatedMessage.metadata as MessageMetadata;
+            const mappedMessage: Message = {
+              id: updatedMessage.id,
+              content: updatedMessage.content || '',
+              is_from_contact: updatedMessage.is_from_contact || false,
+              created_at: updatedMessage.created_at,
+              message_type: updatedMessage.message_type || 'text',
+              conversation_id: updatedMessage.chat_id,
+              metadata: metadata,
+              delivery_status: metadata?.delivery_status || 'sent'
+            };
             setMessages(prev => 
               prev.map(msg => 
-                msg.id === updatedMessage.id ? { ...updatedMessage, delivery_status: metadata?.delivery_status } : msg
+                msg.id === mappedMessage.id ? mappedMessage : msg
               )
             );
           }
