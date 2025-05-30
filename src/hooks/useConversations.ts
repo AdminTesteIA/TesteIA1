@@ -67,11 +67,59 @@ export const useConversations = (userId: string | undefined) => {
 
       console.log('useConversations: Filtered conversations:', userConversations);
       setConversations(userConversations);
+      
+      // Se não há conversas, disparar uma sincronização manual
+      if (userConversations.length === 0) {
+        console.log('No conversations found, triggering manual sync...');
+        await triggerManualSync();
+      }
+      
     } catch (error) {
       console.error('Erro ao carregar conversas:', error);
       toast.error('Erro ao carregar conversas');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const triggerManualSync = async () => {
+    try {
+      // Buscar números conectados do usuário
+      const { data: whatsappNumbers } = await supabase
+        .from('whatsapp_numbers')
+        .select(`
+          id,
+          phone_number,
+          is_connected,
+          agent:agents(id, name, user_id)
+        `)
+        .eq('is_connected', true);
+
+      const userNumbers = (whatsappNumbers || [])
+        .filter(number => number.agent?.user_id === userId);
+
+      console.log('Found user WhatsApp numbers for sync:', userNumbers.length);
+
+      // Sincronizar chats para cada número
+      for (const number of userNumbers) {
+        console.log('Syncing chats for:', number.phone_number);
+        
+        await supabase.functions.invoke('evolution-api', {
+          body: {
+            action: 'syncChats',
+            instanceName: number.phone_number,
+            agentId: number.agent.id
+          }
+        });
+      }
+
+      // Recarregar conversas após sync
+      setTimeout(() => {
+        fetchConversations();
+      }, 2000);
+      
+    } catch (error) {
+      console.error('Error in manual sync:', error);
     }
   };
 

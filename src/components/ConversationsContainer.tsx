@@ -83,6 +83,40 @@ export function ConversationsContainer({ userId }: ConversationsContainerProps) 
     toast.success('Dados sincronizados com sucesso!');
   };
 
+  const handleForceSync = async () => {
+    if (connectedWhatsAppNumbers.length === 0) {
+      toast.error('Nenhum WhatsApp conectado para sincronizar');
+      return;
+    }
+
+    try {
+      toast.info('Forçando sincronização de todos os chats...');
+      
+      for (const whatsappNumber of connectedWhatsAppNumbers) {
+        console.log('Force syncing for:', whatsappNumber.phone_number);
+        
+        await supabase.functions.invoke('evolution-api', {
+          body: {
+            action: 'syncChats',
+            instanceName: whatsappNumber.phone_number,
+            agentId: whatsappNumber.agent.id
+          }
+        });
+      }
+      
+      // Aguardar um pouco e recarregar
+      setTimeout(() => {
+        fetchConversations();
+      }, 2000);
+      
+      toast.success('Sincronização forçada concluída!');
+      
+    } catch (error) {
+      console.error('Error in force sync:', error);
+      toast.error('Erro na sincronização forçada');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -101,27 +135,36 @@ export function ConversationsContainer({ userId }: ConversationsContainerProps) 
         onSyncComplete={handleSyncComplete}
       />
 
+      {/* Botão de sincronização forçada */}
+      <Card>
+        <CardContent className="text-center py-4">
+          <div className="flex items-center justify-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <span className="text-xs text-green-600">Sistema em tempo real ativo</span>
+            </div>
+            <button
+              onClick={handleForceSync}
+              className="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 flex items-center space-x-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+              <span>Forçar Sincronização</span>
+            </button>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Indicador de sincronização automática */}
       {connectedWhatsAppNumbers.length > 0 && !initialSyncComplete && (
         <Card>
           <CardContent className="text-center py-4">
             <div className="flex items-center justify-center space-x-2">
               <RefreshCw className="h-4 w-4 animate-spin text-blue-600" />
-              <span className="text-sm text-gray-600">Sincronizando dados automaticamente...</span>
+              <span className="text-sm text-gray-600">Sincronizando chats automaticamente...</span>
             </div>
           </CardContent>
         </Card>
       )}
-
-      {/* Status de tempo real */}
-      <Card>
-        <CardContent className="text-center py-2">
-          <div className="flex items-center justify-center space-x-2">
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-            <span className="text-xs text-green-600">Sistema em tempo real ativo</span>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Mensagem quando não há WhatsApp conectado */}
       {connectedWhatsAppNumbers.length === 0 && (
