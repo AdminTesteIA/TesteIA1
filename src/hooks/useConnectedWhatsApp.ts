@@ -1,8 +1,6 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useEvolutionAPI } from '@/hooks/useEvolutionAPI';
-import { toast } from 'sonner';
 
 interface ConnectedWhatsApp {
   id: string;
@@ -17,7 +15,6 @@ interface ConnectedWhatsApp {
 export const useConnectedWhatsApp = (userId: string | undefined) => {
   const [connectedWhatsAppNumbers, setConnectedWhatsAppNumbers] = useState<ConnectedWhatsApp[]>([]);
   const [initialSyncComplete, setInitialSyncComplete] = useState(false);
-  const { syncAllData } = useEvolutionAPI();
 
   const fetchConnectedWhatsAppNumbers = async () => {
     if (!userId) return;
@@ -54,7 +51,7 @@ export const useConnectedWhatsApp = (userId: string | undefined) => {
       console.log('Connected WhatsApp numbers found:', userWhatsAppNumbers);
       setConnectedWhatsAppNumbers(userWhatsAppNumbers);
 
-      // Executar sincronização inicial automática
+      // Executar sincronização inicial automática silenciosa
       if (userWhatsAppNumbers.length > 0 && !initialSyncComplete) {
         await performInitialSync(userWhatsAppNumbers);
       }
@@ -65,13 +62,13 @@ export const useConnectedWhatsApp = (userId: string | undefined) => {
   };
 
   const performInitialSync = async (whatsappNumbers: ConnectedWhatsApp[]) => {
-    console.log('Performing initial sync for all connected WhatsApp numbers...');
+    console.log('Performing silent initial sync for all connected WhatsApp numbers...');
     
     for (const whatsappNumber of whatsappNumbers) {
       try {
         console.log('Auto-syncing data for:', whatsappNumber.phone_number);
         
-        // Sincronizar chats primeiro (mais importante)
+        // Sincronizar chats silenciosamente
         await supabase.functions.invoke('evolution-api', {
           body: {
             action: 'syncChats',
@@ -88,7 +85,6 @@ export const useConnectedWhatsApp = (userId: string | undefined) => {
     }
     
     setInitialSyncComplete(true);
-    toast.success('Chats sincronizados automaticamente!');
   };
 
   useEffect(() => {
