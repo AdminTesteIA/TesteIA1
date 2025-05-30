@@ -1,4 +1,14 @@
 
+export interface WhatsAppNumber {
+  id: string;
+  phone_number: string;
+  is_connected: boolean;
+  agent: {
+    id: string;
+    name: string;
+  };
+}
+
 export interface Conversation {
   id: string;
   contact_name: string | null;
