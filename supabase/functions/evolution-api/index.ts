@@ -501,12 +501,24 @@ async function syncChats(instanceName: string, agentId: string, authHeaders: any
       throw new Error('WhatsApp number not found');
     }
 
-    // Processar e salvar conversas
+    // Processar e salvar conversas com metadata completo
     let conversationsSynced = 0;
     for (const chat of chats) {
       if (chat.id && !chat.id.includes('@g.us')) { // Apenas chats individuais, não grupos
         const contactNumber = chat.id.replace('@s.whatsapp.net', '');
-        const contactName = chat.name || chat.pushName || null;
+        const contactName = chat.pushName || null;
+
+        // Criar objeto metadata com os dados do chat
+        const chatMetadata = {
+          id: chat.id,
+          remoteJid: chat.id,
+          pushName: chat.pushName,
+          profilePicUrl: chat.profilePicUrl,
+          updatedAt: chat.updatedAt,
+          windowStart: chat.windowStart,
+          windowExpires: chat.windowExpires,
+          windowActive: chat.windowActive
+        };
 
         // Verificar se a conversa já existe
         const { data: existingConversation } = await supabase
@@ -517,7 +529,7 @@ async function syncChats(instanceName: string, agentId: string, authHeaders: any
           .maybeSingle();
 
         if (!existingConversation) {
-          // Criar nova conversa
+          // Criar nova conversa com metadata
           const { error: conversationError } = await supabase
             .from('conversations')
             .insert({
@@ -526,14 +538,30 @@ async function syncChats(instanceName: string, agentId: string, authHeaders: any
               contact_name: contactName,
               last_message_at: chat.lastMessage?.messageTimestamp 
                 ? new Date(chat.lastMessage.messageTimestamp * 1000).toISOString()
-                : new Date().toISOString()
+                : new Date().toISOString(),
+              metadata: chatMetadata
             });
 
           if (conversationError) {
             console.error('Error creating conversation:', conversationError);
           } else {
             conversationsSynced++;
-            console.log('Conversation created for:', contactNumber);
+            console.log('Conversation created for:', contactNumber, 'with metadata:', chatMetadata);
+          }
+        } else {
+          // Atualizar conversa existente com metadata
+          const { error: updateError } = await supabase
+            .from('conversations')
+            .update({
+              contact_name: contactName,
+              metadata: chatMetadata
+            })
+            .eq('id', existingConversation.id);
+
+          if (updateError) {
+            console.error('Error updating conversation:', updateError);
+          } else {
+            console.log('Conversation updated for:', contactNumber, 'with metadata:', chatMetadata);
           }
         }
       }

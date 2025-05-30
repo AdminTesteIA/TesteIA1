@@ -36,53 +36,25 @@ export function ConversationsList({
     return number.slice(-2);
   };
 
-  // Função para extrair número de telefone real dos dados
+  // Função para extrair número de telefone do remoteJid
   const extractPhoneNumber = (conversation: Conversation) => {
-    // Log completo da conversa para investigar
-    console.log('Full conversation object:', JSON.stringify(conversation, null, 2));
-    
-    // Tentar encontrar o número em diferentes lugares
-    const metadata = conversation.metadata;
-    
-    // Verificar se há remoteJid no metadata
-    if (metadata && typeof metadata === 'object') {
-      const metadataObj = metadata as any;
-      console.log('Metadata object:', metadataObj);
-      
-      // Procurar por remoteJid
-      if (metadataObj.remoteJid && typeof metadataObj.remoteJid === 'string') {
-        const phoneMatch = metadataObj.remoteJid.match(/(\d+)@/);
-        if (phoneMatch) {
-          return phoneMatch[1];
-        }
+    if (conversation.metadata?.remoteJid) {
+      const phoneMatch = conversation.metadata.remoteJid.match(/(\d+)@/);
+      if (phoneMatch) {
+        return phoneMatch[1];
       }
     }
-    
-    // Se não encontrou, usar o contact_number como fallback
     return conversation.contact_number;
   };
 
-  // Função para extrair URL da foto de perfil
-  const extractProfilePicUrl = (conversation: Conversation) => {
-    const metadata = conversation.metadata;
-    
-    if (metadata && typeof metadata === 'object') {
-      const metadataObj = metadata as any;
-      
-      // Verificar diferentes formatos possíveis
-      if (metadataObj.profilePicUrl) {
-        // Se é um objeto com value
-        if (typeof metadataObj.profilePicUrl === 'object' && metadataObj.profilePicUrl.value) {
-          return metadataObj.profilePicUrl.value !== 'undefined' ? metadataObj.profilePicUrl.value : null;
-        }
-        // Se é uma string direta
-        if (typeof metadataObj.profilePicUrl === 'string') {
-          return metadataObj.profilePicUrl !== 'undefined' ? metadataObj.profilePicUrl : null;
-        }
-      }
-    }
-    
-    return null;
+  // Função para obter o nome do contato
+  const getContactName = (conversation: Conversation) => {
+    return conversation.metadata?.pushName || conversation.contact_name;
+  };
+
+  // Função para obter URL da foto de perfil
+  const getProfilePicUrl = (conversation: Conversation) => {
+    return conversation.metadata?.profilePicUrl || null;
   };
 
   return (
@@ -122,14 +94,8 @@ export function ConversationsList({
             <div className="space-y-1">
               {filteredConversations.map((conversation) => {
                 const phoneNumber = extractPhoneNumber(conversation);
-                const profilePicUrl = extractProfilePicUrl(conversation);
-                
-                console.log('Processed data:', {
-                  id: conversation.id,
-                  contact_name: conversation.contact_name,
-                  phoneNumber: phoneNumber,
-                  profilePicUrl: profilePicUrl
-                });
+                const contactName = getContactName(conversation);
+                const profilePicUrl = getProfilePicUrl(conversation);
                 
                 return (
                   <div
@@ -144,7 +110,7 @@ export function ConversationsList({
                         {profilePicUrl && (
                           <AvatarImage 
                             src={profilePicUrl} 
-                            alt={conversation.contact_name || phoneNumber}
+                            alt={contactName || phoneNumber}
                             onError={(e) => {
                               console.log('Error loading profile pic:', profilePicUrl);
                               e.currentTarget.style.display = 'none';
@@ -152,14 +118,14 @@ export function ConversationsList({
                           />
                         )}
                         <AvatarFallback className="bg-blue-100 text-blue-600 font-medium">
-                          {getContactInitials(conversation.contact_name, phoneNumber)}
+                          {getContactInitials(contactName, phoneNumber)}
                         </AvatarFallback>
                       </Avatar>
                       
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-1">
                           <h3 className="font-medium truncate text-gray-900">
-                            {conversation.contact_name || phoneNumber}
+                            {contactName || phoneNumber}
                           </h3>
                           <span className="text-xs text-gray-500 flex-shrink-0 ml-2">
                             {formatDistanceToNow(new Date(conversation.last_message_at), { 

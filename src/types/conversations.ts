@@ -14,7 +14,14 @@ export interface Conversation {
     };
   };
   metadata?: {
+    id?: string;
+    remoteJid?: string;
+    pushName?: string;
     profilePicUrl?: string;
+    updatedAt?: string;
+    windowStart?: string;
+    windowExpires?: string;
+    windowActive?: boolean;
     [key: string]: any;
   };
   _count?: {
