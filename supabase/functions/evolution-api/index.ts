@@ -505,15 +505,17 @@ async function syncChats(instanceName: string, agentId: string, authHeaders: any
     let conversationsSynced = 0;
     for (const chat of chats) {
       if (chat.id && !chat.id.includes('@g.us')) { // Apenas chats individuais, não grupos
-        // NOVA ESTRUTURA: contact_id armazena o ID do chat, contact_number armazena o remoteJid
-        const contactId = chat.id.replace('@s.whatsapp.net', '');
-        const contactNumber = chat.id; // Armazenar o remoteJid completo
+        // CORREÇÃO: contact_id armazena o ID do chat, contact_number armazena o remoteJid
+        const contactId = chat.id;
+        const contactNumber = chat.remoteJid; // AQUI ESTÁ A CORREÇÃO!
         const contactName = chat.pushName || null;
+
+        console.log('Processing chat:', { chatId: chat.id, remoteJid: chat.remoteJid, pushName: chat.pushName });
 
         // Criar objeto metadata com os dados do chat
         const chatMetadata = {
           id: chat.id,
-          remoteJid: chat.id,
+          remoteJid: chat.remoteJid,
           pushName: chat.pushName,
           profilePicUrl: chat.profilePicUrl,
           updatedAt: chat.updatedAt,
@@ -531,12 +533,12 @@ async function syncChats(instanceName: string, agentId: string, authHeaders: any
           .maybeSingle();
 
         if (!existingConversation) {
-          // Criar nova conversa com a nova estrutura
+          // Criar nova conversa com a estrutura correta
           const { error: conversationError } = await supabase
             .from('conversations')
             .insert({
               whatsapp_number_id: whatsappData.id,
-              contact_id: contactId, // ID do contato sem @s.whatsapp.net
+              contact_id: contactId, // ID do chat
               contact_number: contactNumber, // remoteJid completo
               contact_name: contactName,
               last_message_at: chat.lastMessage?.messageTimestamp 
@@ -552,7 +554,7 @@ async function syncChats(instanceName: string, agentId: string, authHeaders: any
             console.log('Conversation created for:', contactId, 'with remoteJid:', contactNumber, 'and metadata:', chatMetadata);
           }
         } else {
-          // Atualizar conversa existente com metadata e nova estrutura
+          // Atualizar conversa existente com metadata e estrutura correta
           const { error: updateError } = await supabase
             .from('conversations')
             .update({
@@ -625,11 +627,11 @@ async function syncContacts(instanceName: string, agentId: string, authHeaders: 
     let contactsUpdated = 0;
     for (const contact of contacts) {
       if (contact.id && !contact.id.includes('@g.us')) {
-        const contactId = contact.id.replace('@s.whatsapp.net', '');
+        const contactId = contact.id;
         const contactName = contact.name || contact.pushName || contact.verifiedName;
 
         if (contactName) {
-          // Buscar conversa por contact_id (nova estrutura)
+          // Buscar conversa por contact_id
           const { error: updateError } = await supabase
             .from('conversations')
             .update({ contact_name: contactName })
@@ -679,7 +681,7 @@ async function processAndSaveMessage(message: any, instanceName: string, agentId
 
     // Extrair informações da mensagem
     const isFromContact = !message.key?.fromMe;
-    const contactId = message.key?.remoteJid?.replace('@s.whatsapp.net', '');
+    const contactId = message.key?.remoteJid;
     const messageContent = message.message?.conversation || 
                           message.message?.extendedTextMessage?.text || 
                           '[Media]';
@@ -688,7 +690,7 @@ async function processAndSaveMessage(message: any, instanceName: string, agentId
       return false; // Pular grupos e mensagens inválidas
     }
 
-    // Buscar conversa por contact_id (nova estrutura)
+    // Buscar conversa por contact_id
     let { data: conversation, error: conversationError } = await supabase
       .from('conversations')
       .select('id')
@@ -702,12 +704,12 @@ async function processAndSaveMessage(message: any, instanceName: string, agentId
     }
 
     if (!conversation) {
-      // Criar nova conversa com a nova estrutura
+      // Criar nova conversa
       const { data: newConversation, error: createError } = await supabase
         .from('conversations')
         .insert({
           whatsapp_number_id: whatsappData.id,
-          contact_id: contactId, // ID sem @s.whatsapp.net
+          contact_id: contactId, // ID do chat
           contact_number: message.key?.remoteJid, // remoteJid completo
           contact_name: message.pushName || null,
           last_message_at: new Date(message.messageTimestamp * 1000).toISOString()
