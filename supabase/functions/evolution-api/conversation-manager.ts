@@ -44,7 +44,7 @@ export async function syncConversationMessages(instanceName: string, agentId: st
       });
     }
 
-    // Processar e salvar mensagens no banco
+    // Processar e salvar mensagens no banco - SEM DUPLICAÇÃO
     let messagesSynced = 0;
     for (const message of messages) {
       console.log('Processing message for remoteJid:', remoteJid);
@@ -84,7 +84,7 @@ export async function syncChats(instanceName: string, agentId: string, authHeade
     // Buscar WhatsApp number ID
     const whatsappData = await getWhatsAppNumberData(instanceName, agentId);
 
-    // Processar e salvar conversas com metadata completo
+    // Processar e salvar conversas com metadata completo - PREVENINDO DUPLICAÇÃO
     let conversationsSynced = 0;
     for (const chat of chats) {
       if (chat.id && !chat.id.includes('@g.us')) { // Apenas chats individuais, não grupos
@@ -106,12 +106,12 @@ export async function syncChats(instanceName: string, agentId: string, authHeade
           windowActive: chat.windowActive
         };
 
-        // Verificar se a conversa já existe (buscar por contact_id)
+        // VERIFICAÇÃO MAIS RIGOROSA: Verificar se a conversa já existe usando múltiplos critérios
         const { data: existingConversation } = await supabase
           .from('conversations')
           .select('id')
           .eq('whatsapp_number_id', whatsappData.id)
-          .eq('contact_id', contactId)
+          .or(`contact_id.eq.${contactId},remote_jid.eq.${contactNumber}`)
           .maybeSingle();
 
         if (!existingConversation) {
@@ -122,6 +122,7 @@ export async function syncChats(instanceName: string, agentId: string, authHeade
               whatsapp_number_id: whatsappData.id,
               contact_id: contactId, // ID do chat
               contact_number: contactNumber, // remoteJid completo
+              remote_jid: contactNumber, // Adicionando remote_jid também
               contact_name: contactName,
               last_message_at: chat.lastMessage?.messageTimestamp 
                 ? new Date(chat.lastMessage.messageTimestamp * 1000).toISOString()
@@ -142,6 +143,7 @@ export async function syncChats(instanceName: string, agentId: string, authHeade
             .update({
               contact_name: contactName,
               contact_number: contactNumber, // Atualizar com remoteJid
+              remote_jid: contactNumber, // Garantir que remote_jid está preenchido
               metadata: chatMetadata
             })
             .eq('id', existingConversation.id);

@@ -167,10 +167,14 @@ export const useMessages = (selectedConversation: Conversation | null) => {
       // Carregar mensagens do banco primeiro
       fetchMessages(selectedConversation.id);
       
-      // Sincronizar mensagens da Evolution API automaticamente
-      syncMessagesFromEvolution(selectedConversation);
+      // Sincronizar mensagens da Evolution API apenas uma vez ao selecionar conversa
+      const timeoutId = setTimeout(() => {
+        syncMessagesFromEvolution(selectedConversation);
+      }, 1000); // Aguardar 1 segundo para evitar múltiplas chamadas
+
+      return () => clearTimeout(timeoutId);
     }
-  }, [selectedConversation]);
+  }, [selectedConversation?.id]); // Usar apenas o ID para evitar re-execuções desnecessárias
 
   return {
     messages,
