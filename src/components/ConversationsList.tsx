@@ -90,10 +90,12 @@ export function ConversationsList({
                   >
                     <div className="flex items-center space-x-3">
                       <Avatar className="h-12 w-12">
-                        <AvatarImage 
-                          src={profilePicUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${conversation.contact_name || phoneNumber}`} 
-                          alt={conversation.contact_name || phoneNumber}
-                        />
+                        {profilePicUrl ? (
+                          <AvatarImage 
+                            src={profilePicUrl} 
+                            alt={conversation.contact_name || phoneNumber}
+                          />
+                        ) : null}
                         <AvatarFallback className="bg-blue-100 text-blue-600 font-medium">
                           {getContactInitials(conversation.contact_name, phoneNumber)}
                         </AvatarFallback>
@@ -116,9 +118,6 @@ export function ConversationsList({
                           <p className="text-sm text-gray-600 truncate">
                             {phoneNumber}
                           </p>
-                          <Badge variant="outline" className="text-xs ml-2">
-                            {conversation.whatsapp_number.agent.name}
-                          </Badge>
                         </div>
                       </div>
                     </div>
