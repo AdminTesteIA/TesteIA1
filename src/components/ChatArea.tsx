@@ -2,6 +2,7 @@
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { MessageSquare, Send, Phone, User } from 'lucide-react';
 import { MessageDeliveryStatus } from '@/components/MessageDeliveryStatus';
 import type { Conversation, Message } from '@/types/conversations';
@@ -34,6 +35,17 @@ const formatPhoneNumber = (phoneNumber: string): string => {
   return `+${cleanNumber}`;
 };
 
+// Função para obter as iniciais do nome para o fallback do avatar
+const getInitials = (name: string): string => {
+  if (!name) return 'U';
+  return name
+    .split(' ')
+    .map(word => word.charAt(0))
+    .join('')
+    .substring(0, 2)
+    .toUpperCase();
+};
+
 export function ChatArea({
   selectedConversation,
   messages,
@@ -55,17 +67,22 @@ export function ChatArea({
   }
 
   const formattedPhoneNumber = formatPhoneNumber(selectedConversation.contact_number);
+  const profilePicUrl = selectedConversation.metadata?.profilePicUrl;
+  const contactName = selectedConversation.contact_name || selectedConversation.metadata?.pushName || formattedPhoneNumber;
 
   return (
     <Card className="h-full flex flex-col">
       <CardHeader className="border-b">
         <div className="flex items-center space-x-3">
-          <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
-            <User className="h-5 w-5 text-blue-600" />
-          </div>
+          <Avatar className="h-10 w-10">
+            <AvatarImage src={profilePicUrl} alt={contactName} />
+            <AvatarFallback className="bg-blue-100 text-blue-600">
+              {selectedConversation.contact_name ? getInitials(selectedConversation.contact_name) : <User className="h-5 w-5" />}
+            </AvatarFallback>
+          </Avatar>
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold truncate">
-              {selectedConversation.contact_name || formattedPhoneNumber}
+              {contactName}
             </h3>
             <div className="flex items-center space-x-4 text-sm text-gray-500">
               <div className="flex items-center space-x-1">
