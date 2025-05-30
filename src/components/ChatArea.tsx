@@ -2,7 +2,6 @@
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { MessageSquare, Send, Phone, User } from 'lucide-react';
 import { MessageDeliveryStatus } from '@/components/MessageDeliveryStatus';
 import type { Conversation, Message } from '@/types/conversations';
@@ -15,6 +14,25 @@ interface ChatAreaProps {
   sendingMessage: boolean;
   onSendMessage: () => void;
 }
+
+// Função para formatar número de telefone brasileiro
+const formatPhoneNumber = (phoneNumber: string): string => {
+  if (!phoneNumber) return '';
+  
+  // Remove @s.whatsapp.net e outros caracteres especiais
+  const cleanNumber = phoneNumber.replace('@s.whatsapp.net', '').replace(/\D/g, '');
+  
+  // Se o número tem 13 dígitos e começa com 55 (Brasil)
+  if (cleanNumber.length === 13 && cleanNumber.startsWith('55')) {
+    const ddd = cleanNumber.substring(2, 4);
+    const firstPart = cleanNumber.substring(4, 9);
+    const secondPart = cleanNumber.substring(9, 13);
+    return `+55 (${ddd}) ${firstPart}-${secondPart}`;
+  }
+  
+  // Para outros formatos, retorna o número limpo com +
+  return `+${cleanNumber}`;
+};
 
 export function ChatArea({
   selectedConversation,
@@ -36,6 +54,8 @@ export function ChatArea({
     );
   }
 
+  const formattedPhoneNumber = formatPhoneNumber(selectedConversation.contact_number);
+
   return (
     <Card className="h-full flex flex-col">
       <CardHeader className="border-b">
@@ -45,23 +65,17 @@ export function ChatArea({
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold truncate">
-              {selectedConversation.contact_name || selectedConversation.contact_number}
+              {selectedConversation.contact_name || formattedPhoneNumber}
             </h3>
             <div className="flex items-center space-x-4 text-sm text-gray-500">
               <div className="flex items-center space-x-1">
                 <Phone className="h-3 w-3" />
-                <span>{selectedConversation.contact_number}</span>
+                <span>{formattedPhoneNumber}</span>
               </div>
               <div className="flex items-center space-x-1">
                 <MessageSquare className="h-3 w-3" />
                 <span>via {selectedConversation.whatsapp_number.agent.name}</span>
               </div>
-              <Badge 
-                variant={selectedConversation.whatsapp_number.is_connected ? "default" : "secondary"}
-                className="text-xs"
-              >
-                {selectedConversation.whatsapp_number.is_connected ? "Conectado" : "Desconectado"}
-              </Badge>
             </div>
           </div>
         </div>
