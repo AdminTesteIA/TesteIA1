@@ -11,6 +11,7 @@ export const useConversations = (userId: string | undefined) => {
   const fetchConversations = async () => {
     if (!userId) {
       console.log('useConversations: No userId provided');
+      setLoading(false);
       return;
     }
 
@@ -36,6 +37,7 @@ export const useConversations = (userId: string | undefined) => {
       if (error) {
         console.error('Erro ao carregar conversas:', error);
         toast.error('Erro ao carregar conversas');
+        setLoading(false);
         return;
       }
 

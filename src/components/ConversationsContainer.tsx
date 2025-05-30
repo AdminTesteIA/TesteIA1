@@ -1,17 +1,16 @@
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Phone, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
-import { RealtimeNotifications } from '@/components/RealtimeNotifications';
 import { ConversationsHeader } from '@/components/ConversationsHeader';
 import { ConversationsList } from '@/components/ConversationsList';
 import { ChatArea } from '@/components/ChatArea';
 import { useConversations } from '@/hooks/useConversations';
 import { useConnectedWhatsApp } from '@/hooks/useConnectedWhatsApp';
 import { useMessages } from '@/hooks/useMessages';
-import { useRealtimeSubscriptions } from '@/hooks/useRealtimeSubscriptions';
-import type { Conversation } from '@/types/conversations';
+import { useRealtimeMessages } from '@/hooks/useRealtimeMessages';
+import type { Conversation, Message } from '@/types/conversations';
 
 interface ConversationsContainerProps {
   userId: string;
@@ -39,19 +38,44 @@ export function ConversationsContainer({ userId }: ConversationsContainerProps) 
     sendMessage 
   } = useMessages(selectedConversation);
 
-  // Setup realtime subscriptions
-  useRealtimeSubscriptions({
-    selectedConversation,
-    setMessages,
-    onConversationUpdate: fetchConversations
-  });
-
-  const handleNewMessageNotification = () => {
-    fetchConversations();
-    if (selectedConversation) {
-      // This will be handled by the useMessages hook
+  // Callback para nova mensagem em tempo real
+  const handleNewMessage = useCallback((message: Message) => {
+    console.log('Handling new realtime message:', message);
+    
+    // Se a mensagem é da conversa selecionada, adicionar às mensagens
+    if (selectedConversation && message.conversation_id === selectedConversation.id) {
+      setMessages(prev => {
+        // Verificar se a mensagem já existe
+        const exists = prev.some(m => m.id === message.id);
+        if (exists) return prev;
+        
+        return [...prev, message];
+      });
     }
-  };
+
+    // Mostrar notificação se for mensagem de contato
+    if (message.is_from_contact) {
+      toast.success('Nova mensagem recebida!', {
+        description: message.content.length > 50 
+          ? message.content.substring(0, 50) + '...' 
+          : message.content,
+        duration: 3000,
+      });
+    }
+  }, [selectedConversation, setMessages]);
+
+  // Callback para atualização de conversas
+  const handleConversationUpdate = useCallback(() => {
+    console.log('Updating conversations due to realtime event');
+    fetchConversations();
+  }, [fetchConversations]);
+
+  // Setup realtime subscriptions
+  useRealtimeMessages({
+    userId,
+    onNewMessage: handleNewMessage,
+    onConversationUpdate: handleConversationUpdate
+  });
 
   const handleSyncComplete = async () => {
     await fetchConversations();
@@ -69,8 +93,6 @@ export function ConversationsContainer({ userId }: ConversationsContainerProps) 
 
   return (
     <div className="space-y-6">
-      <RealtimeNotifications onNewMessage={handleNewMessageNotification} />
-      
       <ConversationsHeader
         connectedWhatsAppNumbers={connectedWhatsAppNumbers}
         showSyncPanel={showSyncPanel}
@@ -90,6 +112,16 @@ export function ConversationsContainer({ userId }: ConversationsContainerProps) 
           </CardContent>
         </Card>
       )}
+
+      {/* Status de tempo real */}
+      <Card>
+        <CardContent className="text-center py-2">
+          <div className="flex items-center justify-center space-x-2">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            <span className="text-xs text-green-600">Sistema em tempo real ativo</span>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Mensagem quando não há WhatsApp conectado */}
       {connectedWhatsAppNumbers.length === 0 && (
