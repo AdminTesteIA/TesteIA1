@@ -129,9 +129,9 @@ export type Database = {
       }
       messages: {
         Row: {
+          chat_id: string
           content: string
           context_info: Json | null
-          conversation_id: string
           created_at: string
           evolution_id: string | null
           evolution_key: Json | null
@@ -146,9 +146,9 @@ export type Database = {
           source: string | null
         }
         Insert: {
+          chat_id: string
           content: string
           context_info?: Json | null
-          conversation_id: string
           created_at?: string
           evolution_id?: string | null
           evolution_key?: Json | null
@@ -163,9 +163,9 @@ export type Database = {
           source?: string | null
         }
         Update: {
+          chat_id?: string
           content?: string
           context_info?: Json | null
-          conversation_id?: string
           created_at?: string
           evolution_id?: string | null
           evolution_key?: Json | null
@@ -182,7 +182,7 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "messages_conversation_id_fkey"
-            columns: ["conversation_id"]
+            columns: ["chat_id"]
             isOneToOne: false
             referencedRelation: "chat"
             referencedColumns: ["id"]

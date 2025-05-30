@@ -70,7 +70,7 @@ export function ChatArea({
 
   const formattedPhoneNumber = formatPhoneNumber(selectedConversation.contact_number);
   const profilePicUrl = selectedConversation.metadata?.profilePicUrl;
-  const contactName = selectedConversation.contact_name || selectedConversation.metadata?.pushName || formattedPhoneNumber;
+  const contactName = selectedConversation.push_name || selectedConversation.metadata?.pushName || formattedPhoneNumber;
 
   return (
     <Card className="h-full flex flex-col">
@@ -79,7 +79,7 @@ export function ChatArea({
           <Avatar className="h-10 w-10">
             <AvatarImage src={profilePicUrl} alt={contactName} />
             <AvatarFallback className="bg-blue-100 text-blue-600">
-              {selectedConversation.contact_name ? getInitials(selectedConversation.contact_name) : <User className="h-5 w-5" />}
+              {selectedConversation.push_name ? getInitials(selectedConversation.push_name) : <User className="h-5 w-5" />}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">

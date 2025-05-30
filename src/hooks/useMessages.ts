@@ -15,7 +15,7 @@ export const useMessages = (selectedConversation: Conversation | null) => {
       const { data, error } = await supabase
         .from('messages')
         .select('*')
-        .eq('conversation_id', conversationId)
+        .eq('chat_id', conversationId)
         .order('created_at', { ascending: true });
 
       if (error) {
@@ -33,7 +33,7 @@ export const useMessages = (selectedConversation: Conversation | null) => {
           is_from_contact: msg.is_from_contact,
           created_at: msg.created_at,
           message_type: msg.message_type,
-          conversation_id: msg.conversation_id,
+          conversation_id: msg.chat_id,
           metadata: metadata,
           delivery_status: metadata?.delivery_status || 'sent'
         };
@@ -89,7 +89,7 @@ export const useMessages = (selectedConversation: Conversation | null) => {
       const { data, error } = await supabase
         .from('messages')
         .insert({
-          conversation_id: selectedConversation.id,
+          chat_id: selectedConversation.id,
           content: newMessage.trim(),
           is_from_contact: false,
           message_type: 'text',
@@ -147,7 +147,7 @@ export const useMessages = (selectedConversation: Conversation | null) => {
 
       // Atualizar última mensagem da conversa
       await supabase
-        .from('conversations')
+        .from('chat')
         .update({ last_message_at: new Date().toISOString() })
         .eq('id', selectedConversation.id);
 
