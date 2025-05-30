@@ -165,12 +165,17 @@ export default function Conversations() {
         return;
       }
 
-      // Filtrar apenas conversas de agentes do usuário logado
-      const userConversations = (data || []).filter(conversation => 
-        conversation.whatsapp_number?.agent?.id && 
-        // Verificar se o agente pertence ao usuário (isso seria melhor com uma query mais específica)
-        true // Por enquanto mostrar todas, mas idealmente filtrar por user_id
-      );
+      // Filtrar apenas conversas de agentes do usuário logado e converter tipos
+      const userConversations: Conversation[] = (data || [])
+        .filter(conversation => 
+          conversation.whatsapp_number?.agent?.id && 
+          // Verificar se o agente pertence ao usuário (isso seria melhor com uma query mais específica)
+          true // Por enquanto mostrar todas, mas idealmente filtrar por user_id
+        )
+        .map(conversation => ({
+          ...conversation,
+          metadata: conversation.metadata as Conversation['metadata']
+        }));
 
       setConversations(userConversations);
     } catch (error) {
