@@ -10,12 +10,6 @@ import {
   logoutInstance 
 } from './instance-management.ts';
 import { sendMessage } from './messaging.ts';
-import { 
-  syncMessages, 
-  syncConversationMessages, 
-  syncChats, 
-  syncContacts 
-} from './sync-operations.ts';
 import type { EvolutionAPIRequest, AuthHeaders } from './types.ts';
 
 const EVOLUTION_API_KEY = Deno.env.get('EVOLUTION_API_KEY') ?? '';
@@ -26,8 +20,8 @@ serve(async (req) => {
   }
 
   try {
-    const { action, instanceName, agentId, message, to, number, remoteJid }: EvolutionAPIRequest = await req.json();
-    console.log('Evolution API action:', action, { instanceName, agentId, to, number, remoteJid });
+    const { action, instanceName, agentId, message, to, number }: EvolutionAPIRequest = await req.json();
+    console.log('Evolution API action:', action, { instanceName, agentId, to, number });
 
     const authHeaders: AuthHeaders = {
       'apikey': EVOLUTION_API_KEY,
@@ -52,18 +46,6 @@ serve(async (req) => {
       
       case 'logoutInstance':
         return await logoutInstance(instanceName!, authHeaders);
-      
-      case 'syncMessages':
-        return await syncMessages(instanceName!, agentId!, authHeaders);
-
-      case 'syncConversationMessages':
-        return await syncConversationMessages(instanceName!, agentId!, remoteJid!, authHeaders);
-
-      case 'syncChats':
-        return await syncChats(instanceName!, agentId!, authHeaders);
-
-      case 'syncContacts':
-        return await syncContacts(instanceName!, agentId!, authHeaders);
       
       default:
         return new Response(JSON.stringify({ error: 'Invalid action' }), {

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -68,7 +69,6 @@ export const WhatsAppConnection = ({
     try {
       console.log('Creating instance with name:', instanceName, 'and number:', phoneNumber);
       
-      // Criar instância na Evolution API v2
       await createInstance(instanceName, agent.id, phoneNumber);
       toast.success('Instância WhatsApp criada com sucesso!');
 
@@ -109,7 +109,6 @@ export const WhatsAppConnection = ({
       const result = await getInstanceStatus(instanceName);
       console.log('Status result:', result);
       
-      // Verificar tanto connectionStatus quanto instance.state para compatibilidade
       if (result[0]) {
         const connectionStatus = result[0].connectionStatus || result[0].instance?.state;
         const connected = connectionStatus === 'open';
@@ -120,12 +119,11 @@ export const WhatsAppConnection = ({
         
         if (connected) {
           toast.success('WhatsApp conectado!');
-          setQrCode(''); // Limpar QR code quando conectado
+          setQrCode('');
         } else {
           toast.warning('WhatsApp não está conectado');
         }
 
-        // Sempre atualizar os dados do componente pai
         if (onConnectionUpdate) {
           onConnectionUpdate();
         }
@@ -146,7 +144,6 @@ export const WhatsAppConnection = ({
     try {
       await logoutInstance(instanceName);
       
-      // Atualizar estado local
       setIsConnected(false);
       setQrCode('');
       
@@ -280,7 +277,6 @@ export const WhatsAppConnection = ({
               )}
             </div>
 
-            {/* Mostrar QR Code automaticamente se disponível e não conectado */}
             {qrCode && !isConnected && (
               <div className="border rounded-lg p-4 text-center bg-white">
                 <h3 className="font-medium mb-2 text-gray-800">Escaneie com seu WhatsApp</h3>
