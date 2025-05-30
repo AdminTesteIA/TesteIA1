@@ -65,7 +65,7 @@ export async function syncConversationMessages(instanceName: string, agentId: st
   console.log('Syncing conversation messages for instance:', instanceName, 'remoteJid:', remoteJid);
 
   try {
-    // Buscar mensagens filtradas por remoteJid específico
+    // Buscar mensagens específicas para este remoteJid usando o método correto da API
     const response = await fetch(`${EVOLUTION_API_URL}/chat/findMessages/${instanceName}`, {
       method: 'POST',
       headers: authHeaders,
@@ -74,7 +74,8 @@ export async function syncConversationMessages(instanceName: string, agentId: st
           key: {
             remoteJid: remoteJid
           }
-        }
+        },
+        limit: 100 // Limitar para evitar sobrecarga
       })
     });
 
@@ -84,16 +85,29 @@ export async function syncConversationMessages(instanceName: string, agentId: st
       throw new Error(`Failed to fetch conversation messages: ${errorData}`);
     }
 
-    const messages = await response.json();
-    console.log('Conversation messages fetched from Evolution API:', messages ? messages.length : 'undefined or empty', 'for remoteJid:', remoteJid);
+    const responseData = await response.json();
+    console.log('Raw response from Evolution API:', JSON.stringify(responseData, null, 2));
+
+    // A resposta pode vir em diferentes formatos, vamos verificar
+    let messages = [];
+    if (Array.isArray(responseData)) {
+      messages = responseData;
+    } else if (responseData && Array.isArray(responseData.messages)) {
+      messages = responseData.messages;
+    } else if (responseData && Array.isArray(responseData.data)) {
+      messages = responseData.data;
+    }
+
+    console.log('Parsed messages for remoteJid:', remoteJid, 'count:', messages.length);
 
     // Verificar se messages é um array válido
-    if (!messages || !Array.isArray(messages)) {
-      console.log('No conversation messages found or invalid response format');
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      console.log('No conversation messages found for remoteJid:', remoteJid);
       return new Response(JSON.stringify({ 
         success: true, 
         messagesSynced: 0,
-        message: 'No conversation messages found or invalid response format'
+        remoteJid,
+        message: 'No conversation messages found'
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -102,9 +116,12 @@ export async function syncConversationMessages(instanceName: string, agentId: st
     // Processar e salvar mensagens no banco
     let messagesSynced = 0;
     for (const message of messages) {
+      console.log('Processing message:', JSON.stringify(message, null, 2));
       const processed = await processAndSaveMessage(message, instanceName, agentId);
       if (processed) messagesSynced++;
     }
+
+    console.log('Messages synced for remoteJid:', remoteJid, 'count:', messagesSynced);
 
     return new Response(JSON.stringify({ 
       success: true, 
@@ -315,9 +332,11 @@ export async function syncContacts(instanceName: string, agentId: string, authHe
 
 async function processAndSaveMessage(message: any, instanceName: string, agentId: string): Promise<boolean> {
   try {
+    console.log('Processing message data:', JSON.stringify(message, null, 2));
+    
     // Verificar se a mensagem tem dados válidos
     if (!message || !message.key || !message.messageTimestamp) {
-      console.log('Skipping invalid message:', message);
+      console.log('Skipping invalid message - missing key or timestamp:', message);
       return false;
     }
 
@@ -330,27 +349,52 @@ async function processAndSaveMessage(message: any, instanceName: string, agentId
       .maybeSingle();
 
     if (whatsappError || !whatsappData) {
-      console.error('WhatsApp number not found:', whatsappError);
+      console.error('WhatsApp number not found for processAndSaveMessage:', whatsappError);
       return false;
     }
 
     // Extrair informações da mensagem
     const isFromContact = !message.key?.fromMe;
-    const contactId = message.key?.remoteJid;
-    const messageContent = message.message?.conversation || 
-                          message.message?.extendedTextMessage?.text || 
-                          '[Media]';
+    const contactId = message.key?.remoteJid?.replace('@s.whatsapp.net', '');
+    const remoteJid = message.key?.remoteJid;
+    
+    // Extrair conteúdo da mensagem de diferentes tipos
+    let messageContent = '';
+    if (message.message?.conversation) {
+      messageContent = message.message.conversation;
+    } else if (message.message?.extendedTextMessage?.text) {
+      messageContent = message.message.extendedTextMessage.text;
+    } else if (message.message?.imageMessage?.caption) {
+      messageContent = `[Imagem] ${message.message.imageMessage.caption || ''}`;
+    } else if (message.message?.videoMessage?.caption) {
+      messageContent = `[Vídeo] ${message.message.videoMessage.caption || ''}`;
+    } else if (message.message?.audioMessage) {
+      messageContent = '[Áudio]';
+    } else if (message.message?.documentMessage) {
+      messageContent = `[Documento] ${message.message.documentMessage.fileName || ''}`;
+    } else {
+      messageContent = '[Mensagem não suportada]';
+    }
 
-    if (!contactId || message.key?.remoteJid?.includes('@g.us')) {
+    if (!contactId || !remoteJid || remoteJid.includes('@g.us')) {
+      console.log('Skipping message - invalid contact or group message:', { contactId, remoteJid });
       return false; // Pular grupos e mensagens inválidas
     }
 
-    // Buscar conversa por contact_id
+    console.log('Message details:', { 
+      contactId, 
+      remoteJid, 
+      messageContent: messageContent.substring(0, 50), 
+      isFromContact,
+      timestamp: message.messageTimestamp 
+    });
+
+    // Buscar conversa por contact_number (remoteJid)
     let { data: conversation, error: conversationError } = await supabase
       .from('conversations')
       .select('id')
       .eq('whatsapp_number_id', whatsappData.id)
-      .eq('contact_id', contactId)
+      .eq('contact_number', remoteJid)
       .maybeSingle();
 
     if (conversationError) {
@@ -359,13 +403,14 @@ async function processAndSaveMessage(message: any, instanceName: string, agentId
     }
 
     if (!conversation) {
+      console.log('Creating new conversation for remoteJid:', remoteJid);
       // Criar nova conversa
       const { data: newConversation, error: createError } = await supabase
         .from('conversations')
         .insert({
           whatsapp_number_id: whatsappData.id,
-          contact_id: contactId, // ID do chat
-          contact_number: message.key?.remoteJid, // remoteJid completo
+          contact_id: contactId, // ID do contato sem @s.whatsapp.net
+          contact_number: remoteJid, // remoteJid completo
           contact_name: message.pushName || null,
           last_message_at: new Date(message.messageTimestamp * 1000).toISOString()
         })
@@ -378,22 +423,37 @@ async function processAndSaveMessage(message: any, instanceName: string, agentId
       }
 
       conversation = newConversation;
+      console.log('New conversation created with ID:', conversation.id);
     }
 
-    // Verificar se a mensagem já existe
+    // Verificar se a mensagem já existe usando timestamp e conteúdo
+    const messageTimestamp = new Date(message.messageTimestamp * 1000).toISOString();
     const { data: existingMessage } = await supabase
       .from('messages')
       .select('id')
       .eq('conversation_id', conversation.id)
-      .eq('created_at', new Date(message.messageTimestamp * 1000).toISOString())
+      .eq('created_at', messageTimestamp)
       .eq('content', messageContent)
+      .eq('is_from_contact', isFromContact)
       .maybeSingle();
 
     if (!existingMessage) {
+      console.log('Saving new message:', { 
+        conversationId: conversation.id, 
+        content: messageContent.substring(0, 50),
+        isFromContact,
+        timestamp: messageTimestamp
+      });
+
       // Salvar mensagem
       const messageMetadata: ProcessedMessage = { 
         messageId: message.key?.id,
-        delivery_status: 'sent'
+        delivery_status: 'sent',
+        evolutionData: {
+          remoteJid: message.key?.remoteJid,
+          fromMe: message.key?.fromMe,
+          participant: message.key?.participant
+        }
       };
 
       const { error: messageError } = await supabase
@@ -403,7 +463,7 @@ async function processAndSaveMessage(message: any, instanceName: string, agentId
           content: messageContent,
           is_from_contact: isFromContact,
           message_type: 'text',
-          created_at: new Date(message.messageTimestamp * 1000).toISOString(),
+          created_at: messageTimestamp,
           metadata: messageMetadata
         });
 
@@ -416,11 +476,14 @@ async function processAndSaveMessage(message: any, instanceName: string, agentId
       await supabase
         .from('conversations')
         .update({ 
-          last_message_at: new Date(message.messageTimestamp * 1000).toISOString() 
+          last_message_at: messageTimestamp 
         })
         .eq('id', conversation.id);
 
+      console.log('Message saved successfully');
       return true;
+    } else {
+      console.log('Message already exists, skipping');
     }
 
     return false;
