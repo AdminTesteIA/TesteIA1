@@ -36,9 +36,53 @@ export function ConversationsList({
     return number.slice(-2);
   };
 
-  // Extrair número do remoteJid (formato: 5511960613827@s.whatsapp.net)
-  const extractPhoneNumber = (remoteJid: string) => {
-    return remoteJid.split('@')[0];
+  // Função para extrair número de telefone real dos dados
+  const extractPhoneNumber = (conversation: Conversation) => {
+    // Log completo da conversa para investigar
+    console.log('Full conversation object:', JSON.stringify(conversation, null, 2));
+    
+    // Tentar encontrar o número em diferentes lugares
+    const metadata = conversation.metadata;
+    
+    // Verificar se há remoteJid no metadata
+    if (metadata && typeof metadata === 'object') {
+      const metadataObj = metadata as any;
+      console.log('Metadata object:', metadataObj);
+      
+      // Procurar por remoteJid
+      if (metadataObj.remoteJid && typeof metadataObj.remoteJid === 'string') {
+        const phoneMatch = metadataObj.remoteJid.match(/(\d+)@/);
+        if (phoneMatch) {
+          return phoneMatch[1];
+        }
+      }
+    }
+    
+    // Se não encontrou, usar o contact_number como fallback
+    return conversation.contact_number;
+  };
+
+  // Função para extrair URL da foto de perfil
+  const extractProfilePicUrl = (conversation: Conversation) => {
+    const metadata = conversation.metadata;
+    
+    if (metadata && typeof metadata === 'object') {
+      const metadataObj = metadata as any;
+      
+      // Verificar diferentes formatos possíveis
+      if (metadataObj.profilePicUrl) {
+        // Se é um objeto com value
+        if (typeof metadataObj.profilePicUrl === 'object' && metadataObj.profilePicUrl.value) {
+          return metadataObj.profilePicUrl.value !== 'undefined' ? metadataObj.profilePicUrl.value : null;
+        }
+        // Se é uma string direta
+        if (typeof metadataObj.profilePicUrl === 'string') {
+          return metadataObj.profilePicUrl !== 'undefined' ? metadataObj.profilePicUrl : null;
+        }
+      }
+    }
+    
+    return null;
   };
 
   return (
@@ -77,16 +121,14 @@ export function ConversationsList({
           ) : (
             <div className="space-y-1">
               {filteredConversations.map((conversation) => {
-                const phoneNumber = extractPhoneNumber(conversation.contact_number);
-                const profilePicUrl = conversation.metadata?.profilePicUrl;
+                const phoneNumber = extractPhoneNumber(conversation);
+                const profilePicUrl = extractProfilePicUrl(conversation);
                 
-                console.log('Conversation data:', {
+                console.log('Processed data:', {
                   id: conversation.id,
                   contact_name: conversation.contact_name,
-                  contact_number: conversation.contact_number,
                   phoneNumber: phoneNumber,
-                  profilePicUrl: profilePicUrl,
-                  metadata: conversation.metadata
+                  profilePicUrl: profilePicUrl
                 });
                 
                 return (
