@@ -80,6 +80,15 @@ export function ConversationsList({
                 const phoneNumber = extractPhoneNumber(conversation.contact_number);
                 const profilePicUrl = conversation.metadata?.profilePicUrl;
                 
+                console.log('Conversation data:', {
+                  id: conversation.id,
+                  contact_name: conversation.contact_name,
+                  contact_number: conversation.contact_number,
+                  phoneNumber: phoneNumber,
+                  profilePicUrl: profilePicUrl,
+                  metadata: conversation.metadata
+                });
+                
                 return (
                   <div
                     key={conversation.id}
@@ -90,12 +99,16 @@ export function ConversationsList({
                   >
                     <div className="flex items-center space-x-3">
                       <Avatar className="h-12 w-12">
-                        {profilePicUrl ? (
+                        {profilePicUrl && (
                           <AvatarImage 
                             src={profilePicUrl} 
                             alt={conversation.contact_name || phoneNumber}
+                            onError={(e) => {
+                              console.log('Error loading profile pic:', profilePicUrl);
+                              e.currentTarget.style.display = 'none';
+                            }}
                           />
-                        ) : null}
+                        )}
                         <AvatarFallback className="bg-blue-100 text-blue-600 font-medium">
                           {getContactInitials(conversation.contact_name, phoneNumber)}
                         </AvatarFallback>
