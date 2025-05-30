@@ -51,9 +51,11 @@ export type Database = {
           contact_name: string | null
           contact_number: string
           created_at: string
+          evolution_chat_id: string | null
           id: string
           last_message_at: string
           metadata: Json | null
+          remote_jid: string | null
           whatsapp_number_id: string
         }
         Insert: {
@@ -61,9 +63,11 @@ export type Database = {
           contact_name?: string | null
           contact_number: string
           created_at?: string
+          evolution_chat_id?: string | null
           id?: string
           last_message_at?: string
           metadata?: Json | null
+          remote_jid?: string | null
           whatsapp_number_id: string
         }
         Update: {
@@ -71,9 +75,11 @@ export type Database = {
           contact_name?: string | null
           contact_number?: string
           created_at?: string
+          evolution_chat_id?: string | null
           id?: string
           last_message_at?: string
           metadata?: Json | null
+          remote_jid?: string | null
           whatsapp_number_id?: string
         }
         Relationships: [
@@ -127,30 +133,54 @@ export type Database = {
       messages: {
         Row: {
           content: string
+          context_info: Json | null
           conversation_id: string
           created_at: string
+          evolution_id: string | null
+          evolution_key: Json | null
           id: string
+          instance_id: string | null
           is_from_contact: boolean
+          message_timestamp: number | null
           message_type: string
+          message_updates: Json | null
           metadata: Json | null
+          push_name: string | null
+          source: string | null
         }
         Insert: {
           content: string
+          context_info?: Json | null
           conversation_id: string
           created_at?: string
+          evolution_id?: string | null
+          evolution_key?: Json | null
           id?: string
+          instance_id?: string | null
           is_from_contact?: boolean
+          message_timestamp?: number | null
           message_type?: string
+          message_updates?: Json | null
           metadata?: Json | null
+          push_name?: string | null
+          source?: string | null
         }
         Update: {
           content?: string
+          context_info?: Json | null
           conversation_id?: string
           created_at?: string
+          evolution_id?: string | null
+          evolution_key?: Json | null
           id?: string
+          instance_id?: string | null
           is_from_contact?: boolean
+          message_timestamp?: number | null
           message_type?: string
+          message_updates?: Json | null
           metadata?: Json | null
+          push_name?: string | null
+          source?: string | null
         }
         Relationships: [
           {

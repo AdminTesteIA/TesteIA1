@@ -28,4 +28,28 @@ export interface ChatMetadata {
 export interface ProcessedMessage {
   messageId?: string;
   delivery_status: string;
+  evolutionData?: {
+    messageType?: string;
+    remoteJid?: string;
+    fromMe?: boolean;
+    participant?: string;
+  };
+}
+
+export interface EvolutionMessage {
+  id: string;
+  key: {
+    id: string;
+    fromMe: boolean;
+    remoteJid: string;
+    participant?: string;
+  };
+  pushName?: string;
+  messageType: string;
+  message: any;
+  messageTimestamp: number;
+  instanceId?: string;
+  source?: string;
+  contextInfo?: any;
+  MessageUpdate?: any[];
 }
