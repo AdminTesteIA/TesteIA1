@@ -10,6 +10,7 @@ import {
   logoutInstance 
 } from './instance-management.ts';
 import { sendMessage } from './messaging.ts';
+import { handleSyncChats, handleSyncContacts, handleSyncMessages } from './sync-operations.ts';
 import type { EvolutionAPIRequest, AuthHeaders } from './types.ts';
 
 const EVOLUTION_API_KEY = Deno.env.get('EVOLUTION_API_KEY') ?? '';
@@ -46,6 +47,15 @@ serve(async (req) => {
       
       case 'logoutInstance':
         return await logoutInstance(instanceName!, authHeaders);
+
+      case 'syncChats':
+        return await handleSyncChats(instanceName!, agentId!, authHeaders);
+
+      case 'syncContacts':
+        return await handleSyncContacts(instanceName!, agentId!, authHeaders);
+
+      case 'syncMessages':
+        return await handleSyncMessages(instanceName!, agentId!, authHeaders);
       
       default:
         return new Response(JSON.stringify({ error: 'Invalid action' }), {

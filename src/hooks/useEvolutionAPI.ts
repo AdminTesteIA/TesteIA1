@@ -58,6 +58,21 @@ export const useEvolutionAPI = () => {
     return await callEvolutionAPI('logoutInstance', { instanceName });
   };
 
+  const syncChats = async (instanceName: string, agentId: string) => {
+    console.log('Syncing chats for Evolution Channel instance:', instanceName);
+    return await callEvolutionAPI('syncChats', { instanceName, agentId });
+  };
+
+  const syncContacts = async (instanceName: string, agentId: string) => {
+    console.log('Syncing contacts for Evolution Channel instance:', instanceName);
+    return await callEvolutionAPI('syncContacts', { instanceName, agentId });
+  };
+
+  const syncMessages = async (instanceName: string, agentId: string) => {
+    console.log('Syncing messages for Evolution Channel instance:', instanceName);
+    return await callEvolutionAPI('syncMessages', { instanceName, agentId });
+  };
+
   return {
     loading,
     createInstance,
@@ -65,6 +80,9 @@ export const useEvolutionAPI = () => {
     sendMessage,
     getQRCode,
     getInstanceStatus,
-    logoutInstance
+    logoutInstance,
+    syncChats,
+    syncContacts,
+    syncMessages
   };
 };
