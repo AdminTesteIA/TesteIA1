@@ -24,16 +24,17 @@ export async function syncContacts(instanceName: string, agentId: string, authHe
     let contactsUpdated = 0;
     for (const contact of contacts) {
       if (contact.id && !contact.id.includes('@g.us')) {
-        const contactId = contact.id;
+        // CORREÇÃO: contact.id é o JID completo, precisamos extrair o número limpo
+        const contactNumber = contact.id.replace('@s.whatsapp.net', ''); // Número limpo
         const contactName = contact.name || contact.pushName || contact.verifiedName;
 
         if (contactName) {
-          // Buscar conversa por contact_id
+          // Buscar conversa por contact_number (número limpo)
           const { error: updateError } = await supabase
             .from('conversations')
             .update({ contact_name: contactName })
             .eq('whatsapp_number_id', whatsappData.id)
-            .eq('contact_id', contactId);
+            .eq('contact_number', contactNumber); // Usar contact_number ao invés de contact_id
 
           if (!updateError) {
             contactsUpdated++;

@@ -82,22 +82,30 @@ export async function syncChats(instanceName: string, agentId: string, authHeade
     // Buscar WhatsApp number ID
     const whatsappData = await getWhatsAppNumberData(instanceName, agentId);
 
-    // Processar chats SEM DUPLICAÇÃO baseado em contact_id
+    // Processar chats SEM DUPLICAÇÃO baseado em contact_number
     let conversationsSynced = 0;
     for (const chat of chats) {
       if (chat.id && !chat.id.includes('@g.us')) { // Apenas chats individuais
-        const contactId = chat.id.replace('@s.whatsapp.net', '');
-        const remoteJid = chat.id;
+        // CORREÇÃO: Separar corretamente os campos
+        const contactNumber = chat.id.replace('@s.whatsapp.net', ''); // Número limpo 
+        const contactId = chat.id; // ID do chat (JID completo como ID)
+        const remoteJid = chat.id; // JID completo
         const contactName = chat.pushName || null;
 
-        console.log('Processing chat:', { chatId: chat.id, contactId, remoteJid, pushName: chat.pushName });
+        console.log('Processing chat:', { 
+          chatId: chat.id, 
+          contactNumber, 
+          contactId, 
+          remoteJid, 
+          pushName: chat.pushName 
+        });
 
-        // VERIFICAÇÃO RIGOROSA: usar contact_id como chave única
+        // VERIFICAÇÃO RIGOROSA: usar contact_number como chave única
         const { data: existingConversation, error: checkError } = await supabase
           .from('conversations')
           .select('id, contact_name, metadata')
           .eq('whatsapp_number_id', whatsappData.id)
-          .eq('contact_id', contactId)
+          .eq('contact_number', contactNumber)
           .maybeSingle();
 
         if (checkError) {
@@ -119,15 +127,15 @@ export async function syncChats(instanceName: string, agentId: string, authHeade
 
         if (!existingConversation) {
           // CRIAR NOVA CONVERSA apenas se não existir
-          console.log('Creating new conversation for contactId:', contactId);
+          console.log('Creating new conversation for contactNumber:', contactNumber);
           
           const { error: conversationError } = await supabase
             .from('conversations')
             .insert({
               whatsapp_number_id: whatsappData.id,
-              contact_id: contactId,
-              contact_number: remoteJid,
-              remote_jid: remoteJid,
+              contact_number: contactNumber, // Número limpo
+              contact_id: contactId, // JID completo como ID
+              remote_jid: remoteJid, // JID completo
               contact_name: contactName,
               last_message_at: chat.lastMessage?.messageTimestamp 
                 ? new Date(chat.lastMessage.messageTimestamp * 1000).toISOString()
@@ -138,13 +146,13 @@ export async function syncChats(instanceName: string, agentId: string, authHeade
           if (conversationError) {
             // Se erro de duplicação (constraint violation), pular
             if (conversationError.code === '23505') {
-              console.log('Conversation already exists (constraint violation) for contactId:', contactId);
+              console.log('Conversation already exists (constraint violation) for contactNumber:', contactNumber);
             } else {
               console.error('Error creating conversation:', conversationError);
             }
           } else {
             conversationsSynced++;
-            console.log('Conversation created for contactId:', contactId);
+            console.log('Conversation created for contactNumber:', contactNumber);
           }
         } else {
           // ATUALIZAR conversa existente APENAS se necessário
@@ -157,8 +165,8 @@ export async function syncChats(instanceName: string, agentId: string, authHeade
               .from('conversations')
               .update({
                 contact_name: contactName,
-                contact_number: remoteJid,
-                remote_jid: remoteJid,
+                contact_id: contactId, // Atualizar contact_id também
+                remote_jid: remoteJid, // Atualizar remote_jid também
                 metadata: chatMetadata
               })
               .eq('id', existingConversation.id);
@@ -166,10 +174,10 @@ export async function syncChats(instanceName: string, agentId: string, authHeade
             if (updateError) {
               console.error('Error updating conversation:', updateError);
             } else {
-              console.log('Conversation updated for contactId:', contactId);
+              console.log('Conversation updated for contactNumber:', contactNumber);
             }
           } else {
-            console.log('Conversation already up to date for contactId:', contactId);
+            console.log('Conversation already up to date for contactNumber:', contactNumber);
           }
         }
       }

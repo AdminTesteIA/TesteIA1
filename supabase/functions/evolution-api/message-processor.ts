@@ -25,13 +25,20 @@ export async function processAndSaveMessage(message: any, instanceName: string, 
     // Extrair informações da mensagem
     const isFromContact = !message.key?.fromMe;
     const remoteJid = message.key?.remoteJid;
-    const contactId = remoteJid?.replace('@s.whatsapp.net', '');
     
     // Pular grupos
     if (!remoteJid || remoteJid.includes('@g.us')) {
       console.log('Skipping group message or invalid remoteJid');
       return false;
     }
+
+    // CORREÇÃO: Separar corretamente os campos
+    // contact_number: número limpo (ex: 5511960613827)
+    // contact_id: ID específico do Evolution (ex: cmba0isem04n0td4q0c94bmfx)  
+    // remote_jid: JID completo (ex: 5511960613827@s.whatsapp.net)
+    const contactNumber = remoteJid.replace('@s.whatsapp.net', ''); // Número limpo
+    const contactId = message.id || remoteJid; // ID do Evolution ou JID como fallback
+    const contactRemoteJid = remoteJid; // JID completo
 
     // VERIFICAÇÃO: Se mensagem já existe usando evolution_id
     const { data: existingMessage } = await supabase
@@ -50,20 +57,21 @@ export async function processAndSaveMessage(message: any, instanceName: string, 
 
     console.log('Message details:', { 
       evolutionId: message.id,
-      contactId, 
-      remoteJid, 
+      contactNumber, 
+      contactId,
+      remoteJid: contactRemoteJid, 
       messageContent: messageContent.substring(0, 50), 
       isFromContact,
       timestamp: message.messageTimestamp,
       messageType: message.messageType
     });
 
-    // BUSCAR CONVERSA EXISTENTE usando contact_id ÚNICO para evitar duplicação
+    // BUSCAR CONVERSA EXISTENTE usando contact_number (número limpo)
     let { data: conversation, error: conversationError } = await supabase
       .from('conversations')
       .select('id')
       .eq('whatsapp_number_id', whatsappData.id)
-      .eq('contact_id', contactId)
+      .eq('contact_number', contactNumber)
       .maybeSingle();
 
     if (conversationError) {
@@ -73,14 +81,14 @@ export async function processAndSaveMessage(message: any, instanceName: string, 
 
     // SE NÃO EXISTE CONVERSA, criar nova (COM VERIFICAÇÃO DUPLA)
     if (!conversation) {
-      console.log('Creating new conversation for contactId:', contactId);
+      console.log('Creating new conversation for contactNumber:', contactNumber);
       
       // VERIFICAÇÃO DUPLA antes de criar
       const { data: doubleCheck } = await supabase
         .from('conversations')
         .select('id')
         .eq('whatsapp_number_id', whatsappData.id)
-        .eq('contact_id', contactId)
+        .eq('contact_number', contactNumber)
         .maybeSingle();
 
       if (doubleCheck) {
@@ -92,9 +100,9 @@ export async function processAndSaveMessage(message: any, instanceName: string, 
           .from('conversations')
           .insert({
             whatsapp_number_id: whatsappData.id,
-            contact_id: contactId,
-            contact_number: remoteJid,
-            remote_jid: remoteJid,
+            contact_number: contactNumber, // Número limpo
+            contact_id: contactId, // ID do Evolution
+            remote_jid: contactRemoteJid, // JID completo
             contact_name: message.pushName || null,
             last_message_at: new Date(message.messageTimestamp * 1000).toISOString()
           })
@@ -109,7 +117,7 @@ export async function processAndSaveMessage(message: any, instanceName: string, 
               .from('conversations')
               .select('id')
               .eq('whatsapp_number_id', whatsappData.id)
-              .eq('contact_id', contactId)
+              .eq('contact_number', contactNumber)
               .single();
             
             if (existingConv) {

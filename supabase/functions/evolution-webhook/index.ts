@@ -26,14 +26,21 @@ serve(async (req) => {
     // Processar mensagens do Evolution Channel seguindo a documentação oficial
     if (payload.numberId && payload.key && payload.message) {
       const numberId = payload.numberId;
-      const contactNumber = payload.key.remoteJid;
+      const remoteJid = payload.key.remoteJid;
       const messageContent = payload.message.conversation || 'Mensagem não suportada';
       const isFromContact = !payload.key.fromMe;
       const contactName = payload.pushName || null;
 
+      // CORREÇÃO: Separar corretamente os campos
+      const contactNumber = remoteJid ? remoteJid.replace('@s.whatsapp.net', '') : numberId; // Número limpo
+      const contactId = payload.key.id || remoteJid; // ID da mensagem ou JID como fallback
+      const contactRemoteJid = remoteJid; // JID completo
+
       console.log('Processing Evolution Channel message:', {
         numberId,
         contactNumber,
+        contactId,
+        remoteJid: contactRemoteJid,
         messageContent,
         isFromContact,
         contactName
@@ -54,13 +61,13 @@ serve(async (req) => {
         });
       }
 
-      // Buscar ou criar conversa
+      // Buscar ou criar conversa usando contact_number (número limpo)
       let conversation;
       const { data: existingConversation } = await supabase
         .from('conversations')
         .select('*')
         .eq('whatsapp_number_id', whatsappNumber.id)
-        .eq('contact_number', contactNumber)
+        .eq('contact_number', contactNumber) // Usar contact_number ao invés de contact_number
         .maybeSingle();
 
       if (existingConversation) {
@@ -77,7 +84,9 @@ serve(async (req) => {
           .from('conversations')
           .insert({
             whatsapp_number_id: whatsappNumber.id,
-            contact_number: contactNumber,
+            contact_number: contactNumber, // Número limpo
+            contact_id: contactId, // ID da mensagem
+            remote_jid: contactRemoteJid, // JID completo
             contact_name: contactName,
             last_message_at: new Date().toISOString()
           })
