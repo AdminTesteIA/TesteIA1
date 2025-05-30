@@ -430,16 +430,30 @@ async function syncMessages(instanceName: string, agentId: string, authHeaders: 
     }
 
     const messages = await response.json();
-    console.log('Messages fetched from Evolution API:', messages.length);
+    console.log('Messages fetched from Evolution API:', messages ? messages.length : 'undefined or empty');
+
+    // Verificar se messages é um array válido
+    if (!messages || !Array.isArray(messages)) {
+      console.log('No messages found or invalid response format');
+      return new Response(JSON.stringify({ 
+        success: true, 
+        messagesSynced: 0,
+        message: 'No messages found or invalid response format'
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     // Processar e salvar mensagens no banco
+    let messagesSynced = 0;
     for (const message of messages) {
-      await processAndSaveMessage(message, instanceName, agentId);
+      const processed = await processAndSaveMessage(message, instanceName, agentId);
+      if (processed) messagesSynced++;
     }
 
     return new Response(JSON.stringify({ 
       success: true, 
-      messagesSynced: messages.length 
+      messagesSynced 
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -611,6 +625,12 @@ async function syncContacts(instanceName: string, agentId: string, authHeaders: 
 
 async function processAndSaveMessage(message: any, instanceName: string, agentId: string) {
   try {
+    // Verificar se a mensagem tem dados válidos
+    if (!message || !message.key || !message.messageTimestamp) {
+      console.log('Skipping invalid message:', message);
+      return false;
+    }
+
     // Buscar WhatsApp number ID
     const { data: whatsappData, error: whatsappError } = await supabase
       .from('whatsapp_numbers')
@@ -621,7 +641,7 @@ async function processAndSaveMessage(message: any, instanceName: string, agentId
 
     if (whatsappError || !whatsappData) {
       console.error('WhatsApp number not found:', whatsappError);
-      return;
+      return false;
     }
 
     // Extrair informações da mensagem
@@ -632,7 +652,7 @@ async function processAndSaveMessage(message: any, instanceName: string, agentId
                           '[Media]';
 
     if (!contactNumber || contactNumber.includes('@g.us')) {
-      return; // Pular grupos e mensagens inválidas
+      return false; // Pular grupos e mensagens inválidas
     }
 
     // Buscar ou criar conversa
@@ -645,7 +665,7 @@ async function processAndSaveMessage(message: any, instanceName: string, agentId
 
     if (conversationError) {
       console.error('Error finding conversation:', conversationError);
-      return;
+      return false;
     }
 
     if (!conversation) {
@@ -663,7 +683,7 @@ async function processAndSaveMessage(message: any, instanceName: string, agentId
 
       if (createError) {
         console.error('Error creating conversation:', createError);
-        return;
+        return false;
       }
 
       conversation = newConversation;
@@ -696,6 +716,7 @@ async function processAndSaveMessage(message: any, instanceName: string, agentId
 
       if (messageError) {
         console.error('Error saving message:', messageError);
+        return false;
       }
 
       // Atualizar última mensagem da conversa
@@ -705,9 +726,14 @@ async function processAndSaveMessage(message: any, instanceName: string, agentId
           last_message_at: new Date(message.messageTimestamp * 1000).toISOString() 
         })
         .eq('id', conversation.id);
+
+      return true;
     }
+
+    return false;
 
   } catch (error) {
     console.error('Error processing message:', error);
+    return false;
   }
 }

@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -73,6 +72,27 @@ export const useEvolutionAPI = () => {
     return await callEvolutionAPI('syncContacts', { instanceName, agentId });
   };
 
+  const syncAllData = async (instanceName: string, agentId: string) => {
+    console.log('Syncing all data for Evolution Channel instance:', instanceName);
+    
+    try {
+      // Sincronizar tudo em sequência
+      const chatsResult = await syncChats(instanceName, agentId);
+      const contactsResult = await syncContacts(instanceName, agentId);
+      const messagesResult = await syncMessages(instanceName, agentId);
+
+      return {
+        success: true,
+        conversationsSynced: chatsResult.conversationsSynced || 0,
+        contactsUpdated: contactsResult.contactsUpdated || 0,
+        messagesSynced: messagesResult.messagesSynced || 0
+      };
+    } catch (error) {
+      console.error('Error syncing all data:', error);
+      throw error;
+    }
+  };
+
   return {
     loading,
     createInstance,
@@ -83,6 +103,7 @@ export const useEvolutionAPI = () => {
     logoutInstance,
     syncMessages,
     syncChats,
-    syncContacts
+    syncContacts,
+    syncAllData
   };
 };

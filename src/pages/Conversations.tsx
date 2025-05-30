@@ -12,6 +12,7 @@ import { ptBR } from 'date-fns/locale';
 import { RealtimeNotifications } from '@/components/RealtimeNotifications';
 import { MessageDeliveryStatus } from '@/components/MessageDeliveryStatus';
 import { WhatsAppSync } from '@/components/WhatsAppSync';
+import { useEvolutionAPI } from '@/hooks/useEvolutionAPI';
 
 interface Conversation {
   id: string;
@@ -59,6 +60,8 @@ export default function Conversations() {
   const [searchTerm, setSearchTerm] = useState('');
   const [connectedWhatsAppNumbers, setConnectedWhatsAppNumbers] = useState<any[]>([]);
   const [showSyncPanel, setShowSyncPanel] = useState(false);
+  const [initialSyncComplete, setInitialSyncComplete] = useState(false);
+  const { syncAllData } = useEvolutionAPI();
 
   useEffect(() => {
     if (user) {
@@ -73,6 +76,39 @@ export default function Conversations() {
       fetchMessages(selectedConversation.id);
     }
   }, [selectedConversation]);
+
+  // Sincronização automática quando há números conectados
+  useEffect(() => {
+    if (connectedWhatsAppNumbers.length > 0 && !initialSyncComplete) {
+      performInitialSync();
+    }
+  }, [connectedWhatsAppNumbers, initialSyncComplete]);
+
+  const performInitialSync = async () => {
+    console.log('Performing initial sync for all connected WhatsApp numbers...');
+    
+    try {
+      for (const whatsappNumber of connectedWhatsAppNumbers) {
+        if (whatsappNumber.is_connected) {
+          console.log('Auto-syncing data for:', whatsappNumber.phone_number);
+          
+          try {
+            await syncAllData(whatsappNumber.phone_number, whatsappNumber.agent.id);
+            console.log('Auto-sync completed for:', whatsappNumber.phone_number);
+          } catch (error) {
+            console.error('Error auto-syncing for', whatsappNumber.phone_number, ':', error);
+          }
+        }
+      }
+
+      // Recarregar conversas após sincronização
+      await fetchConversations();
+      setInitialSyncComplete(true);
+      
+    } catch (error) {
+      console.error('Error in initial sync:', error);
+    }
+  };
 
   const setupRealtimeSubscriptions = () => {
     // Inscrever para atualizações em tempo real nas mensagens
@@ -348,7 +384,7 @@ export default function Conversations() {
               className="flex items-center space-x-2"
             >
               <Settings className="h-4 w-4" />
-              <span>Sincronização</span>
+              <span>Sincronização Manual</span>
             </Button>
           )}
           <Button 
@@ -362,12 +398,12 @@ export default function Conversations() {
         </div>
       </div>
 
-      {/* Painel de sincronização (colapsável) */}
+      {/* Painel de sincronização manual (colapsável) */}
       {showSyncPanel && connectedWhatsAppNumbers.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg border">
           <div className="md:col-span-2 lg:col-span-3 mb-2">
-            <h3 className="text-lg font-semibold text-gray-900">Sincronização WhatsApp</h3>
-            <p className="text-sm text-gray-600">Sincronize dados dos seus números conectados</p>
+            <h3 className="text-lg font-semibold text-gray-900">Sincronização Manual</h3>
+            <p className="text-sm text-gray-600">Use apenas se precisar forçar uma nova sincronização</p>
           </div>
           {connectedWhatsAppNumbers.map((whatsappNumber) => (
             <WhatsAppSync
@@ -378,6 +414,18 @@ export default function Conversations() {
             />
           ))}
         </div>
+      )}
+
+      {/* Indicador de sincronização automática */}
+      {connectedWhatsAppNumbers.length > 0 && !initialSyncComplete && (
+        <Card>
+          <CardContent className="text-center py-4">
+            <div className="flex items-center justify-center space-x-2">
+              <RefreshCw className="h-4 w-4 animate-spin text-blue-600" />
+              <span className="text-sm text-gray-600">Sincronizando dados automaticamente...</span>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Mensagem quando não há WhatsApp conectado */}
