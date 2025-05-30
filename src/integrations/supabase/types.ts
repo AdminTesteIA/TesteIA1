@@ -89,6 +89,56 @@ export type Database = {
           },
         ]
       }
+      conversation: {
+        Row: {
+          conversation: string | null
+          created_at: string
+          id: string
+        }
+        Insert: {
+          conversation?: string | null
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          conversation?: string | null
+          created_at?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      key: {
+        Row: {
+          created_at: string
+          fromMe: boolean
+          id: string
+          message_id: string
+          remoteJid: string
+        }
+        Insert: {
+          created_at?: string
+          fromMe: boolean
+          id: string
+          message_id: string
+          remoteJid: string
+        }
+        Update: {
+          created_at?: string
+          fromMe?: boolean
+          id?: string
+          message_id?: string
+          remoteJid?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "key_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       knowledge_files: {
         Row: {
           agent_id: string
@@ -130,58 +180,37 @@ export type Database = {
       messages: {
         Row: {
           chat_id: string
-          content: string
-          context_info: Json | null
           created_at: string
-          evolution_id: string | null
-          evolution_key: Json | null
           id: string
-          instance_id: string | null
-          is_from_contact: boolean
-          message_timestamp: number | null
-          message_type: string
-          message_updates: Json | null
-          metadata: Json | null
-          push_name: string | null
+          instanceId: string
+          messageTimestamp: string | null
+          messageType: string | null
+          remoteJid: string
           source: string | null
         }
         Insert: {
           chat_id: string
-          content: string
-          context_info?: Json | null
           created_at?: string
-          evolution_id?: string | null
-          evolution_key?: Json | null
-          id?: string
-          instance_id?: string | null
-          is_from_contact?: boolean
-          message_timestamp?: number | null
-          message_type?: string
-          message_updates?: Json | null
-          metadata?: Json | null
-          push_name?: string | null
+          id: string
+          instanceId: string
+          messageTimestamp?: string | null
+          messageType?: string | null
+          remoteJid: string
           source?: string | null
         }
         Update: {
           chat_id?: string
-          content?: string
-          context_info?: Json | null
           created_at?: string
-          evolution_id?: string | null
-          evolution_key?: Json | null
           id?: string
-          instance_id?: string | null
-          is_from_contact?: boolean
-          message_timestamp?: number | null
-          message_type?: string
-          message_updates?: Json | null
-          metadata?: Json | null
-          push_name?: string | null
+          instanceId?: string
+          messageTimestamp?: string | null
+          messageType?: string | null
+          remoteJid?: string
           source?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "messages_conversation_id_fkey"
+            foreignKeyName: "messages_chat_id_fkey"
             columns: ["chat_id"]
             isOneToOne: false
             referencedRelation: "chat"

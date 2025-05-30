@@ -1,3 +1,4 @@
+
 import { supabase } from './supabase-client.ts';
 import { getWhatsAppNumberData, extractMessageContent } from './utils.ts';
 import type { EvolutionMessage, ProcessedMessage } from './types.ts';
@@ -50,20 +51,23 @@ export async function processAndSaveMessage(message: EvolutionMessage, instanceN
       conversation = existingConversation;
     } else {
       // Criar nova conversa na tabela chat
+      const chatData = {
+        id: remoteJid, // Usar remoteJid como ID
+        whatsapp_number_id: whatsappData.id,
+        contact_number: contactNumber,
+        push_name: message.pushName || null,
+        remote_jid: remoteJid,
+        last_message_at: new Date(message.messageTimestamp * 1000).toISOString(),
+        profilePicUrl: null,
+        metadata: {
+          remoteJid: remoteJid,
+          pushName: message.pushName
+        }
+      };
+
       const { data: newConversation, error: conversationError } = await supabase
         .from('chat')
-        .insert({
-          id: remoteJid, // Usar remoteJid como ID
-          whatsapp_number_id: whatsappData.id,
-          contact_number: contactNumber,
-          push_name: message.pushName || null,
-          remote_jid: remoteJid,
-          last_message_at: new Date(message.messageTimestamp * 1000).toISOString(),
-          metadata: {
-            remoteJid: remoteJid,
-            pushName: message.pushName
-          }
-        })
+        .insert(chatData)
         .select()
         .single();
 
@@ -95,7 +99,7 @@ export async function processAndSaveMessage(message: EvolutionMessage, instanceN
     const { error: messageError } = await supabase
       .from('messages')
       .insert({
-        conversation_id: conversation.id,
+        chat_id: conversation.id,
         content: messageContent,
         is_from_contact: !message.key?.fromMe,
         message_type: message.messageType || 'text',

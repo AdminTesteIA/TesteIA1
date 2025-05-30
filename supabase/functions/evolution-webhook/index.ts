@@ -31,7 +31,7 @@ serve(async (req) => {
       const isFromContact = !payload.key.fromMe;
       const contactName = payload.pushName || null;
 
-      // CORREÇÃO: Separar corretamente os campos
+      // Separar corretamente os campos
       const contactNumber = remoteJid ? remoteJid.replace('@s.whatsapp.net', '') : numberId; // Número limpo
       const contactRemoteJid = remoteJid; // JID completo
 
@@ -78,16 +78,23 @@ serve(async (req) => {
           .eq('id', conversation.id);
       } else {
         // Criar nova conversa na tabela chat
+        const chatData = {
+          id: contactRemoteJid, // Usar JID como ID
+          whatsapp_number_id: whatsappNumber.id,
+          contact_number: contactNumber, // Número limpo
+          push_name: contactName,
+          remote_jid: contactRemoteJid, // JID completo
+          last_message_at: new Date().toISOString(),
+          profilePicUrl: null,
+          metadata: {
+            remoteJid: contactRemoteJid,
+            pushName: contactName
+          }
+        };
+
         const { data: newConversation, error: conversationError } = await supabase
           .from('chat')
-          .insert({
-            id: contactRemoteJid, // Usar JID como ID
-            whatsapp_number_id: whatsappNumber.id,
-            contact_number: contactNumber, // Número limpo
-            push_name: contactName,
-            remote_jid: contactRemoteJid, // JID completo
-            last_message_at: new Date().toISOString()
-          })
+          .insert(chatData)
           .select()
           .single();
 
@@ -103,7 +110,7 @@ serve(async (req) => {
       const { error: messageError } = await supabase
         .from('messages')
         .insert({
-          conversation_id: conversation.id,
+          chat_id: conversation.id,
           content: messageContent,
           is_from_contact: isFromContact,
           message_type: 'text',

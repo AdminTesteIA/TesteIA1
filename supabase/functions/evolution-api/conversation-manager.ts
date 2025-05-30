@@ -86,19 +86,23 @@ export async function syncChats(instanceName: string, agentId: string, authHeade
     let conversationsSynced = 0;
     for (const chat of chats) {
       if (chat.id && !chat.id.includes('@g.us')) { // Apenas chats individuais
-        // Mapear os campos que têm nomes iguais na tabela chat
+        // Mapear os campos da API para a tabela chat
+        const contactNumber = chat.id.replace('@s.whatsapp.net', ''); // Número limpo
+        const remoteJid = chat.id; // JID completo
+        
         const chatData = {
-          id: chat.id, // id -> id
-          contact_number: chat.id.replace('@s.whatsapp.net', ''), // Número limpo
-          push_name: chat.pushName || null, // pushName -> push_name
-          remote_jid: chat.id, // JID completo -> remote_jid
+          id: remoteJid, // Usar remoteJid como ID da conversa
+          contact_number: contactNumber, // Número limpo
+          push_name: chat.pushName || null, // Nome do contato
+          remote_jid: remoteJid, // JID completo
           whatsapp_number_id: whatsappData.id,
           last_message_at: chat.lastMessage?.messageTimestamp 
             ? new Date(chat.lastMessage.messageTimestamp * 1000).toISOString()
             : new Date().toISOString(),
+          profilePicUrl: chat.profilePicUrl || null,
           metadata: {
             id: chat.id,
-            remoteJid: chat.remoteJid || chat.id,
+            remoteJid: chat.id,
             pushName: chat.pushName,
             profilePicUrl: chat.profilePicUrl,
             updatedAt: chat.updatedAt,
@@ -117,7 +121,7 @@ export async function syncChats(instanceName: string, agentId: string, authHeade
         // VERIFICAÇÃO RIGOROSA: usar contact_number como chave única
         const { data: existingConversation, error: checkError } = await supabase
           .from('chat')
-          .select('id, push_name, metadata')
+          .select('id, push_name, metadata, profilePicUrl')
           .eq('whatsapp_number_id', whatsappData.id)
           .eq('contact_number', chatData.contact_number)
           .maybeSingle();
@@ -150,6 +154,7 @@ export async function syncChats(instanceName: string, agentId: string, authHeade
           // ATUALIZAR conversa existente APENAS se necessário
           const needsUpdate = 
             existingConversation.push_name !== chatData.push_name ||
+            existingConversation.profilePicUrl !== chatData.profilePicUrl ||
             JSON.stringify(existingConversation.metadata) !== JSON.stringify(chatData.metadata);
 
           if (needsUpdate) {
@@ -158,6 +163,7 @@ export async function syncChats(instanceName: string, agentId: string, authHeade
               .update({
                 push_name: chatData.push_name,
                 remote_jid: chatData.remote_jid,
+                profilePicUrl: chatData.profilePicUrl,
                 metadata: chatData.metadata
               })
               .eq('id', existingConversation.id);
