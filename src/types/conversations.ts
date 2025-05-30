@@ -13,6 +13,10 @@ export interface Conversation {
       name: string;
     };
   };
+  metadata?: {
+    profilePicUrl?: string;
+    [key: string]: any;
+  };
   _count?: {
     messages: number;
   };

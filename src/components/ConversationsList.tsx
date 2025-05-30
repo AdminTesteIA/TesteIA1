@@ -36,6 +36,11 @@ export function ConversationsList({
     return number.slice(-2);
   };
 
+  // Extrair número do remoteJid (formato: 5511960613827@s.whatsapp.net)
+  const extractPhoneNumber = (remoteJid: string) => {
+    return remoteJid.split('@')[0];
+  };
+
   return (
     <Card className="h-full">
       <CardHeader className="pb-3">
@@ -71,50 +76,55 @@ export function ConversationsList({
             </div>
           ) : (
             <div className="space-y-1">
-              {filteredConversations.map((conversation) => (
-                <div
-                  key={conversation.id}
-                  className={`p-4 border-b cursor-pointer hover:bg-gray-50 transition-colors ${
-                    selectedConversation?.id === conversation.id ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
-                  }`}
-                  onClick={() => onConversationSelect(conversation)}
-                >
-                  <div className="flex items-center space-x-3">
-                    <Avatar className="h-12 w-12">
-                      <AvatarImage 
-                        src={`https://api.dicebear.com/7.x/initials/svg?seed=${conversation.contact_name || conversation.contact_number}`} 
-                        alt={conversation.contact_name || conversation.contact_number}
-                      />
-                      <AvatarFallback className="bg-blue-100 text-blue-600 font-medium">
-                        {getContactInitials(conversation.contact_name, conversation.contact_number)}
-                      </AvatarFallback>
-                    </Avatar>
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <h3 className="font-medium truncate text-gray-900">
-                          {conversation.contact_name || conversation.contact_number}
-                        </h3>
-                        <span className="text-xs text-gray-500 flex-shrink-0 ml-2">
-                          {formatDistanceToNow(new Date(conversation.last_message_at), { 
-                            addSuffix: true, 
-                            locale: ptBR 
-                          })}
-                        </span>
-                      </div>
+              {filteredConversations.map((conversation) => {
+                const phoneNumber = extractPhoneNumber(conversation.contact_number);
+                const profilePicUrl = conversation.metadata?.profilePicUrl;
+                
+                return (
+                  <div
+                    key={conversation.id}
+                    className={`p-4 border-b cursor-pointer hover:bg-gray-50 transition-colors ${
+                      selectedConversation?.id === conversation.id ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
+                    }`}
+                    onClick={() => onConversationSelect(conversation)}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <Avatar className="h-12 w-12">
+                        <AvatarImage 
+                          src={profilePicUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${conversation.contact_name || phoneNumber}`} 
+                          alt={conversation.contact_name || phoneNumber}
+                        />
+                        <AvatarFallback className="bg-blue-100 text-blue-600 font-medium">
+                          {getContactInitials(conversation.contact_name, phoneNumber)}
+                        </AvatarFallback>
+                      </Avatar>
                       
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm text-gray-600 truncate">
-                          {conversation.contact_number}
-                        </p>
-                        <Badge variant="outline" className="text-xs ml-2">
-                          {conversation.whatsapp_number.agent.name}
-                        </Badge>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <h3 className="font-medium truncate text-gray-900">
+                            {conversation.contact_name || phoneNumber}
+                          </h3>
+                          <span className="text-xs text-gray-500 flex-shrink-0 ml-2">
+                            {formatDistanceToNow(new Date(conversation.last_message_at), { 
+                              addSuffix: true, 
+                              locale: ptBR 
+                            })}
+                          </span>
+                        </div>
+                        
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm text-gray-600 truncate">
+                            {phoneNumber}
+                          </p>
+                          <Badge variant="outline" className="text-xs ml-2">
+                            {conversation.whatsapp_number.agent.name}
+                          </Badge>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
