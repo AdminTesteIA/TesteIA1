@@ -1,12 +1,18 @@
-
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Chatwoot Configuration
+export const CHATWOOT_CONFIG = {
+  URL: 'https://app.testeia.com',
+  TOKEN: 'TgQaBuYFZPQ6wrHNsm5XeANn', // Seu token
+  PLATFORM_TOKEN: 'TgQaBuYFZPQ6wrHNsm5XeANn' // Mesmo token por enquanto
+};
+
 export const WEBHOOK_EVENTS = [
   "APPLICATION_STARTUP",
-  "QRCODE_UPDATED",
+  "QRCODE_UPDATED", 
   "MESSAGES_SET",
   "MESSAGES_UPSERT",
   "MESSAGES_UPDATE",
