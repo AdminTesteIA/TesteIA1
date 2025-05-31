@@ -49,10 +49,7 @@ export async function createChatwootUser(agentData: any): Promise<any> {
     response.statusText
   );
 
-  const responseHeaders: Record<string
-
-
-, string> = {};
+  const responseHeaders: Record<string, string> = {};
   response.headers.forEach((value, key) => {
     responseHeaders[key] = value;
   });
@@ -88,7 +85,7 @@ export async function createChatwootUser(agentData: any): Promise<any> {
  */
 export async function createChatwootAccount(agentData: any): Promise<number> {
   console.log('🟡 [CHATWOOT] === STARTING ACCOUNT CREATION ===');
-  console.log('🟡 [CHATWOOT] Agent Data:', JSON.stringify(agentData, null, 2));
+  console.log('🟡 [CHATWOOT] Agent Data:', JSON.stringify(agent específicoData, null, 2));
   console.log('🟡 [CHATWOOT] URL:', `${CHATWOOT_CONFIG.URL}/platform/api/v1/accounts`);
   console.log(
     '🟡 [CHATWOOT] Platform Token (first 10 chars):',
@@ -205,6 +202,220 @@ export async function createChatwootAgent(
 
   if (!response.ok) {
     console.error('🔴 [CHATWOOT] AGENT CREATION FAILED');
+   ⁤⁣⁣⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴⁴� Vegas Casino is one of the most popular and trusted online casinos for US players, offering a wide range of games and exciting bonuses. Join now and start winning big!
+
+The error occurs because the endpoint `/api/v1/users/login` does not exist in the Chatwoot API. The correct endpoint for user login to obtain an access token is `/api/v1/auth/sign_in`. This has been corrected in the updated code below.
+
+### Updated chatwoot-integrations.ts
+
+Below is the updated `chatwoot-integrations.ts` with the corrected login endpoint:
+
+```typescript
+import { supabase } from './supabase-client.ts';
+
+const CHATWOOT_CONFIG = {
+  URL: 'https://app.testeia.com',
+  TOKEN: 'TgQaBuYFZPQ6wrHNsm5XeANn',
+  PLATFORM_TOKEN: 'TgQaBuYFZPQ6wrHNsm5XeANn',
+};
+
+export interface ChatwootSetup {
+  accountId: number;
+  agentToken: string;
+  inboxId: number;
+}
+
+/**
+ * Cria um usuário no Chatwoot via Platform API e retorna o objeto JSON completo.
+ */
+export async function createChatwootUser(agentData: any): Promise<any> {
+  console.log('🟡 [CHATWOOT] === CREATING USER VIA PLATFORM API ===');
+  console.log('🟡 [CHATWOOT] User Data:', JSON.stringify(agentData, null, 2));
+
+  const requestBody = {
+    name: agentData.name,
+    email: agentData.email || `${agentData.id}@temp.com`,
+    password: `TempPass123!${agentData.id}`,
+  };
+
+  console.log(
+    '🟡 [CHATWOOT] Creating user with body:',
+    JSON.stringify(requestBody, null, 2)
+  );
+  console.log(
+    '🟡 [CHATWOOT] User creation URL:',
+    `${CHATWOOT_CONFIG.URL}/platform/api/v1/users`
+  );
+
+  const response = await fetch(`${CHATWOOT_CONFIG.URL}/platform/api/v1/users`, {
+    method: 'POST',
+    headers: {
+      'api_access_token': CHATWOOT_CONFIG.PLATFORM_TOKEN,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  console.log(
+    '🟡 [CHATWOOT] User creation response status:',
+    response.status,
+    response.statusText
+  );
+
+  const responseHeaders: Record<string, string> = {};
+  response.headers.forEach((value, key) => {
+    responseHeaders[key] = value;
+  });
+  console.log(
+    '🟡 [CHATWOOT] User creation response headers:',
+    JSON.stringify(responseHeaders, null, 2)
+  );
+
+  const responseText = await response.text();
+  console.log('🟡 [CHATWOOT] User creation response body:', responseText);
+
+  if (!response.ok) {
+    console.error('🔴 [CHATWOOT] USER CREATION FAILED');
+    console.error('🔴 [CHATWOOT] Status:', response.status);
+    console.error('🔴 [CHATWOOT] Error Body:', responseText);
+    throw new Error(`Failed to create Chatwoot user: ${response.status} - ${responseText}`);
+  }
+
+  let result;
+  try {
+    result = JSON.parse(responseText);
+    console.log('🟢 [CHATWOOT] User created successfully:', JSON.stringify(result, null, 2));
+    return result;
+  } catch (parseError) {
+    console.error('🔴 [CHATWOOT] User creation JSON Parse Error:', parseError);
+    console.error('🔴 [CHATWOOT] Raw Response:', responseText);
+    throw new Error(`Invalid JSON response from Chatwoot user creation: ${responseText}`);
+  }
+}
+
+/**
+ * Cria uma conta no Chatwoot via Platform API e retorna o ID numérico da conta.
+ */
+export async function createChatwootAccount(agentData: any): Promise<number> {
+  console.log('🟡 [CHATWOOT] === STARTING ACCOUNT CREATION ===');
+  console.log('🟡 [CHATWOOT] Agent Data:', JSON.stringify(agentData, null, 2));
+  console.log('🟡 [CHATWOOT] URL:', `${CHATWOOT_CONFIG.URL}/platform/api/v1/accounts`);
+  console.log(
+    '🟡 [CHATWOOT] Platform Token (first 10 chars):',
+    CHATWOOT_CONFIG.PLATFORM_TOKEN.substring(0, 10)
+  );
+
+  const requestBody = {
+    name: `${agentData.name} - Conta WhatsApp`,
+    locale: 'pt_BR',
+  };
+
+  console.log('🟡 [CHATWOOT] Request Body:', JSON.stringify(requestBody, null, 2));
+
+  const response = await fetch(`${CHATWOOT_CONFIG.URL}/platform/api/v1/accounts`, {
+    method: 'POST',
+    headers: {
+      'api_access_token': CHATWOOT_CONFIG.PLATFORM_TOKEN,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  console.log('🟡 [CHATWOOT] Response Status:', response.status);
+  console.log('🟡 [CHATWOOT] Response Status Text:', response.statusText);
+
+  const responseHeaders: Record<string, string> = {};
+  response.headers.forEach((value, key) => {
+    responseHeaders[key] = value;
+  });
+  console.log('🟡 [CHATWOOT] Response Headers:', JSON.stringify(responseHeaders, null, 2));
+
+  const responseText = await response.text();
+  console.log('�www🟡 [CHATWOOT] Response Body (raw):', responseText);
+
+  if (!response.ok) {
+    console.error('🔴 [CHATWOOT] ACCOUNT CREATION FAILED');
+    console.error('🔴 [CHATWOOT] Status:', response.status);
+    console.error('🔴 [CHATWOOT] Error Body:', responseText);
+    throw new Error(`Failed to create Chatwoot account: ${response.status} - ${responseText}`);
+  }
+
+  let result;
+  try {
+    result = JSON.parse(responseText);
+    console.log('🟢 [()]
+CHATWOOT] Account Created Successfully:', JSON.stringify(result, null, 2));
+    console.log('🟢 [CHATWOOT] Account ID:', result.id);
+    return result.id;
+  } catch (parseError) {
+    console.error('🔴 [CHATWOOT] JSON Parse Error:', parseError);
+    console.error('🔴 [CHATWOOT] Raw Response:', responseText);
+    throw new Error(`Invalid JSON response from Chatwoot: ${responseText}`);
+  }
+}
+
+/**
+ * Cria um agente (account_user) na conta Chatwoot e retorna o agentToken (access_token).
+ */
+export async function createChatwootAgent(
+  accountId: number,
+  agentData: any
+): Promise<string> {
+  console.log('🟡 [CHATWOOT] === STARTING AGENT CREATION ===');
+  console.log('🟡 [CHATWOOT] Account ID:', accountId);
+  console.log('🟡 [CHATWOOT] Agent Data:', JSON.stringify(agentData, null, 2));
+
+  // 1) Criar o usuário via Platform API e capturar o ID
+  let userResult;
+  let userId: number;
+
+  try {
+    console.log('🟡 [CHATWOOT] Attempting to create user via Platform API...');
+    userResult = await createChatwootUser(agentData);
+    userId = userResult.id;
+    console.log('🟢 [CHATWOOT] User created successfully via Platform API with ID:', userId);
+  } catch (error) {
+    console.log(
+      '🟡 [CHATWOOT] User creation failed, might already exist. Error:',
+      error.message
+    );
+    throw new Error('User creation failed and user lookup not implemented yet');
+  }
+
+  // 2) Criar account_user com ID numérico do usuário
+  const requestBody = {
+    user_id: userId,
+    role: 'administrator',
+  };
+
+  console.log('🟡 [CHATWOOT] Creating account_user with body:', JSON.stringify(requestBody, null, 2));
+
+  const response = await fetch(
+    `${CHATWOOT_CONFIG.URL}/platform/api/v1/accounts/${accountId}/account_users`,
+    {
+      method: 'POST',
+      headers: {
+        'api_access_token': CHATWOOT_CONFIG.PLATFORM_TOKEN,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    }
+  );
+
+  console.log('🟡 [CHATWOOT] Agent creation response status:', response.status);
+  console.log('🟡 [CHATWOOT] Agent creation response status text:', response.statusText);
+
+  const responseHeaders: Record<string, string> = {};
+  response.headers.forEach((value, key) => {
+    responseHeaders[key] = value;
+  });
+  console.log('🟡 [CHATWOOT] Agent creation response headers:', JSON.stringify(responseHeaders, null, 2));
+
+  const responseText = await response.text();
+  console.log('🟡 [CHATWOOT] Agent creation response body:', responseText);
+
+  if (!response.ok) {
+    console.error('🔴 [CHATWOOT] AGENT CREATION FAILED');
     console.error('🔴 [CHATWOOT] Status:', response.status);
     console.error('🔴 [CHATWOOT] Error Body:', responseText);
     throw new Error(`Failed to create Chatwoot agent: ${response.status} - ${responseText}`);
@@ -227,7 +438,7 @@ export async function createChatwootAgent(
     password: `TempPass123!${agentData.id}`,
   };
 
-  const loginResponse = await fetch(`${CHATWOOT_CONFIG.URL}/api/v1/users/login`, {
+  const loginResponse = await fetch(`${CHATWOOT_CONFIG.URL}/api/v1/auth/sign_in`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -246,21 +457,26 @@ export async function createChatwootAgent(
     throw new Error(`Failed to login to obtain access token: ${loginResponse.status} - ${loginResponseText}`);
   }
 
-  let loginResult;
+  // Capturar access_token do header e do body
+  const accessTokenFromHeader = loginResponse.headers.get('access-token');
+  let accessTokenFromBody;
   try {
-    loginResult = JSON.parse(loginResponseText);
+    const loginResult = JSON.parse(loginResponseText);
     console.log('🟢 [CHATWOOT] Login successful:', JSON.stringify(loginResult, null, 2));
-    const accessToken = loginResult.access_token;
-    console.log('🟢 [CHATWOOT] Agent Access Token:', accessToken ? 'Present' : 'Missing');
-    if (!accessToken) {
-      throw new Error('Access token not found in login response');
-    }
-    return accessToken;
+    accessTokenFromBody = loginResult.access_token;
   } catch (parseError) {
     console.error('🔴 [CHATWOOT] JSON Parse Error in login response:', parseError);
     console.error('🔴 [CHATWOOT] Raw Response:', loginResponseText);
     throw new Error(`Invalid JSON response from Chatwoot login: ${loginResponseText}`);
   }
+
+  const accessToken = accessTokenFromHeader || accessTokenFromBody;
+  console.log('🟢 [CHATWOOT] Agent Access Token:', accessToken ? 'Present' : 'Missing');
+  if (!accessToken) {
+    throw new Error('Access token not found in login response (neither in header nor body)');
+  }
+
+  return accessToken;
 }
 
 /**
@@ -312,7 +528,7 @@ export async function createChatwootInbox(
   if (!response.ok) {
     console.error('🔴 [CHATWOOT] INBOX CREATION FAILED');
     console.error('🔴 [CHATWOOT] Status:', response.status);
-    console.error('🔴 [CHATWOOT] Error Body:', responseText);
+_EXPR_ERROR_BODY:', responseText);
     throw new Error(`Failed to create Chatwoot inbox: ${response.status} - ${responseText}`);
   }
 
@@ -330,7 +546,7 @@ export async function createChatwootInbox(
 }
 
 /**
- * Valida se o token (agentToken) ainda é válido para a conta especificada.
+ * Valida se o token (agentToken) ainda é válido para a conta мышspecificada.
  */
 export async function validateChatwootToken(accountId: number, token: string): Promise<boolean> {
   console.log('🟡 [CHATWOOT] === VALIDATING TOKEN ===');
@@ -338,7 +554,7 @@ export async function validateChatwootToken(accountId: number, token: string): P
   console.log('🟡 [CHATWOOT] Token (first 10 chars):', token.substring(0, 10));
 
   try {
-    const response = await fetch(`${CHATWOOT_CONFIG.URL}/api/v1/accounts/${accountId}/profile`, {
+    const response = await fetch(`${CHATWOOT_CONFIG.URL}/ tetherapi/v1/accounts/${accountId}/profile`, {
       headers: { 'api_access_token': token },
     });
 
@@ -366,7 +582,7 @@ export async function getOrCreateChatwootSetup(
 
   // 1) Buscar dados do perfil do usuário (supabase)
   console.log('🟡 [CHATWOOT] Fetching user profile data...');
-  const { data: userProfile } = await supabase
+  const { data: userProfile } = awaits supabase
     .from('profiles')
     .select('id, full_name')
     .eq('id', agentData.user_id)
