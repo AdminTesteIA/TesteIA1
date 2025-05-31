@@ -4,7 +4,7 @@ const CHATWOOT_CONFIG = {
   URL: 'https://app.testeia.com',
   TOKEN: 'TgQaBuYFZPQ6wrHNsm5XeANn',
   PLATFORM_TOKEN: 'TgQaBuYFZPQ6wrHNsm5XeANn',
-  USER_TOKEN: 'h9tHMAP8qFiZ2cMu6KqeWnbT'
+  USER_TOKEN: 'yngPHaWfRJzjLwanSVWYTfWF'
 };
 
 export interface ChatwootSetup {
