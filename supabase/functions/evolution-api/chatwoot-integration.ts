@@ -13,22 +13,23 @@ export interface ChatwootSetup {
 }
 
 export async function createChatwootUser(agentData: any): Promise<any> {
-  console.log('🟡 [CHATWOOT] === CREATING USER FIRST ===');
+  console.log('🟡 [CHATWOOT] === CREATING USER VIA PLATFORM API ===');
   console.log('🟡 [CHATWOOT] User Data:', JSON.stringify(agentData, null, 2));
   
+  // ✅ CORREÇÃO: Usar Platform API para criar usuário
   const requestBody = {
     name: agentData.name,
     email: agentData.email || `${agentData.id}@temp.com`,
-    password: `TempPass123!${agentData.id}`,
-    confirm_password: `TempPass123!${agentData.id}`
+    password: `TempPass123!${agentData.id}`
   };
   
   console.log('🟡 [CHATWOOT] Creating user with body:', JSON.stringify(requestBody, null, 2));
-  console.log('🟡 [CHATWOOT] User creation URL:', `${CHATWOOT_CONFIG.URL}/auth/sign_up`);
+  console.log('🟡 [CHATWOOT] User creation URL:', `${CHATWOOT_CONFIG.URL}/platform/api/v1/users`);
   
-  const response = await fetch(`${CHATWOOT_CONFIG.URL}/auth/sign_up`, {
+  const response = await fetch(`${CHATWOOT_CONFIG.URL}/platform/api/v1/users`, {
     method: 'POST',
     headers: {
+      'api_access_token': CHATWOOT_CONFIG.PLATFORM_TOKEN,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify(requestBody)
@@ -71,8 +72,9 @@ export async function createChatwootAccount(agentData: any): Promise<number> {
   console.log('🟡 [CHATWOOT] URL:', `${CHATWOOT_CONFIG.URL}/platform/api/v1/accounts`);
   console.log('🟡 [CHATWOOT] Platform Token (first 10 chars):', CHATWOOT_CONFIG.PLATFORM_TOKEN.substring(0, 10));
   
+  // ✅ USAR INFORMAÇÕES ÚNICAS DO USUÁRIO
   const requestBody = {
-    name: `${agentData.name} Account`,
+    name: `${agentData.name} - Conta WhatsApp`,
     locale: 'pt_BR'
   };
   
@@ -90,7 +92,6 @@ export async function createChatwootAccount(agentData: any): Promise<number> {
   console.log('🟡 [CHATWOOT] Response Status:', response.status);
   console.log('🟡 [CHATWOOT] Response Status Text:', response.statusText);
   
-  // Log headers da resposta
   const responseHeaders = {};
   response.headers.forEach((value, key) => {
     responseHeaders[key] = value;
@@ -125,22 +126,24 @@ export async function createChatwootAgent(accountId: number, agentData: any): Pr
   console.log('🟡 [CHATWOOT] Account ID:', accountId);
   console.log('🟡 [CHATWOOT] Agent Data:', JSON.stringify(agentData, null, 2));
   
-  // ✅ PRIMEIRO: Criar o usuário se não existir
+  // ✅ PRIMEIRO: Criar o usuário via Platform API
+  let userResult;
   try {
-    console.log('🟡 [CHATWOOT] Attempting to create user first...');
-    await createChatwootUser(agentData);
-    console.log('🟢 [CHATWOOT] User created successfully');
+    console.log('🟡 [CHATWOOT] Attempting to create user via Platform API...');
+    userResult = await createChatwootUser(agentData);
+    console.log('🟢 [CHATWOOT] User created successfully via Platform API');
   } catch (error) {
-    console.log('🟡 [CHATWOOT] User creation failed, might already exist. Continuing with agent creation...');
-    console.log('🟡 [CHATWOOT] User creation error:', error.message);
+    console.log('🟡 [CHATWOOT] User creation failed, might already exist. Error:', error.message);
+    // Se falhar, assumir que usuário já existe e continuar
   }
   
   console.log('🟡 [CHATWOOT] URL:', `${CHATWOOT_CONFIG.URL}/platform/api/v1/accounts/${accountId}/account_users`);
   console.log('🟡 [CHATWOOT] Platform Token (first 10 chars):', CHATWOOT_CONFIG.PLATFORM_TOKEN.substring(0, 10));
   
-  // ✅ MUDANÇA: usar user_id em vez de name/email
+  // ✅ USAR EMAIL ÚNICO DO USUÁRIO COMO IDENTIFICADOR
+  const userEmail = agentData.email || `${agentData.id}@temp.com`;
   const requestBody = {
-    user_id: agentData.email || `${agentData.id}@temp.com`,
+    user_id: userEmail,
     role: 'administrator'
   };
   
@@ -158,7 +161,6 @@ export async function createChatwootAgent(accountId: number, agentData: any): Pr
   console.log('🟡 [CHATWOOT] Response Status:', response.status);
   console.log('🟡 [CHATWOOT] Response Status Text:', response.statusText);
   
-  // Log headers da resposta
   const responseHeaders = {};
   response.headers.forEach((value, key) => {
     responseHeaders[key] = value;
@@ -214,6 +216,25 @@ export async function getOrCreateChatwootSetup(agentId: string, agentData: any):
   console.log('🟡 [CHATWOOT] Agent ID:', agentId);
   console.log('🟡 [CHATWOOT] Agent Data:', JSON.stringify(agentData, null, 2));
   
+  // ✅ BUSCAR DADOS ÚNICOS DO USUÁRIO DO BANCO
+  console.log('🟡 [CHATWOOT] Fetching user profile data...');
+  const { data: userProfile } = await supabase
+    .from('profiles')
+    .select('id, full_name')
+    .eq('id', agentData.user_id)
+    .single();
+
+  // ✅ USAR INFORMAÇÕES REAIS DO USUÁRIO
+  const enrichedAgentData = {
+    ...agentData,
+    name: agentData.name,
+    email: `${agentId}@${userProfile?.full_name?.toLowerCase().replace(/\s+/g, '')}.com` || `${agentId}@temp.com`,
+    user_full_name: userProfile?.full_name || agentData.name,
+    unique_identifier: `${userProfile?.id}-${agentId}` // Identificador único
+  };
+
+  console.log('🟡 [CHATWOOT] Enriched Agent Data:', JSON.stringify(enrichedAgentData, null, 2));
+  
   // Verificar se já existe configuração
   console.log('🟡 [CHATWOOT] Checking for existing configuration...');
   const { data: existingWhatsapp } = await supabase
@@ -227,7 +248,6 @@ export async function getOrCreateChatwootSetup(agentId: string, agentData: any):
   if (existingWhatsapp?.chatwoot_account_id && existingWhatsapp?.chatwoot_agent_token) {
     console.log('🟡 [CHATWOOT] Found existing configuration, validating token...');
     
-    // Validar se o token ainda é válido
     const isValid = await validateChatwootToken(
       existingWhatsapp.chatwoot_account_id,
       existingWhatsapp.chatwoot_agent_token
@@ -246,10 +266,10 @@ export async function getOrCreateChatwootSetup(agentId: string, agentData: any):
     console.log('🟡 [CHATWOOT] No existing configuration found');
   }
 
-  // Criar nova configuração
-  console.log('🟡 [CHATWOOT] Creating new Chatwoot setup...');
-  const accountId = await createChatwootAccount(agentData);
-  const agentToken = await createChatwootAgent(accountId, agentData);
+  // ✅ CRIAR NOVA CONFIGURAÇÃO COM DADOS ÚNICOS
+  console.log('🟡 [CHATWOOT] Creating new Chatwoot setup with unique user data...');
+  const accountId = await createChatwootAccount(enrichedAgentData);
+  const agentToken = await createChatwootAgent(accountId, enrichedAgentData);
 
   console.log('🟢 [CHATWOOT] Setup completed successfully');
   console.log('🟢 [CHATWOOT] Final Account ID:', accountId);
