@@ -1,3 +1,4 @@
+
 import { supabase } from './supabase-client.ts';
 
 const CHATWOOT_CONFIG = {
@@ -41,10 +42,11 @@ export async function createChatwootAccount(agentData: any): Promise<number> {
 export async function createChatwootAgent(accountId: number, agentData: any): Promise<string> {
   console.log('Creating Chatwoot agent for account:', accountId);
   
-  const response = await fetch(`${CHATWOOT_CONFIG.URL}/api/v1/accounts/${accountId}/agents`, {
+  // CORREÇÃO: Usar Platform API para criar o agente em vez da API normal
+  const response = await fetch(`${CHATWOOT_CONFIG.URL}/platform/api/v1/accounts/${accountId}/agents`, {
     method: 'POST',
     headers: {
-      'api_access_token': CHATWOOT_CONFIG.TOKEN,
+      'api_access_token': CHATWOOT_CONFIG.PLATFORM_TOKEN,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
@@ -62,6 +64,8 @@ export async function createChatwootAgent(accountId: number, agentData: any): Pr
 
   const result = await response.json();
   console.log('Chatwoot agent created:', result);
+  
+  // A Platform API retorna o access_token diretamente
   return result.access_token;
 }
 

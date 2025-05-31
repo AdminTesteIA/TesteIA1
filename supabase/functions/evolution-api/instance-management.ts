@@ -34,7 +34,7 @@ export async function createInstance(instanceName: string, agentId: string, numb
     const uniqueInstanceName = `${instanceName}-${number}`;
     console.log('Unique instance name:', uniqueInstanceName);
 
-    // ===== NOVA FUNCIONALIDADE: Configurar ou reutilizar Chatwoot =====
+    // ===== OBRIGATÓRIO: Configurar Chatwoot =====
     const chatwootSetup = await getOrCreateChatwootSetup(agentId, {
       id: agentId,
       name: agent.name,
@@ -46,7 +46,7 @@ export async function createInstance(instanceName: string, agentId: string, numb
     // Configurar webhook URL
     const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/evolution-webhook`;
 
-    // ===== ATUALIZADO: Criar instância na Evolution API com integração Chatwoot =====
+    // ===== Criar instância na Evolution API com integração Chatwoot OBRIGATÓRIA =====
     const instanceData = {
       instanceName: uniqueInstanceName,
       token: agentId, // Usar agentId como token
@@ -66,7 +66,7 @@ export async function createInstance(instanceName: string, agentId: string, numb
         base64: true,
         events: WEBHOOK_EVENTS
       },
-      // ===== NOVO: Configuração Chatwoot integrada =====
+      // ===== OBRIGATÓRIO: Configuração Chatwoot integrada =====
       chatwootAccountId: chatwootSetup.accountId,
       chatwootToken: chatwootSetup.agentToken,
       chatwootUrl: "https://app.testeia.com",
@@ -82,7 +82,7 @@ export async function createInstance(instanceName: string, agentId: string, numb
       chatwootLogo: ""
     };
 
-    console.log('Creating Evolution API instance with Chatwoot integration');
+    console.log('Creating Evolution API instance with mandatory Chatwoot integration');
 
     const createResponse = await fetch(`${EVOLUTION_API_URL}/instance/create`, {
       method: 'POST',
@@ -99,20 +99,20 @@ export async function createInstance(instanceName: string, agentId: string, numb
     const instanceResult = await createResponse.json();
     console.log('Instance created successfully in Evolution API:', instanceResult);
 
-    // ===== ATUALIZADO: Salvar dados completos na base de dados com novos campos =====
+    // ===== Salvar dados completos na base de dados com novos campos =====
     const { error: whatsappError } = await supabase
       .from('whatsapp_numbers')
       .upsert({
         agent_id: agentId,
-        instance_name: uniqueInstanceName, // NOVO CAMPO
+        instance_name: uniqueInstanceName,
         phone_number: uniqueInstanceName, // Manter compatibilidade
         is_connected: false, // SEMPRE false inicialmente
-        evolution_status: 'disconnected', // NOVO CAMPO
-        chatwoot_account_id: chatwootSetup.accountId, // NOVO CAMPO
-        chatwoot_agent_token: chatwootSetup.agentToken, // NOVO CAMPO
+        evolution_status: 'disconnected',
+        chatwoot_account_id: chatwootSetup.accountId,
+        chatwoot_agent_token: chatwootSetup.agentToken,
         session_data: instanceResult,
-        connection_attempts: 0, // NOVO CAMPO
-        last_connected_at: null // NOVO CAMPO
+        connection_attempts: 0,
+        last_connected_at: null
       }, {
         onConflict: 'agent_id'
       });
@@ -127,7 +127,7 @@ export async function createInstance(instanceName: string, agentId: string, numb
     return new Response(JSON.stringify({
       success: true,
       instanceResult,
-      chatwoot: chatwootSetup, // NOVO: Retornar dados do Chatwoot
+      chatwoot: chatwootSetup,
       message: 'Instance created successfully with Chatwoot integration. Status: Disconnected (scan QR to connect).'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -190,12 +190,11 @@ export async function getQRCode(instanceName: string, authHeaders: AuthHeaders) 
   const result = await response.json();
   console.log('QR Code response from Evolution API:', result);
 
-  // ===== ATUALIZADO: Usar instance_name em vez de phone_number =====
   if (result.code) {
     const { data: whatsappData, error: findError } = await supabase
       .from('whatsapp_numbers')
       .select('*')
-      .eq('instance_name', instanceName) // MUDANÇA: usar instance_name
+      .eq('instance_name', instanceName)
       .maybeSingle();
 
     if (findError) {
@@ -205,7 +204,7 @@ export async function getQRCode(instanceName: string, authHeaders: AuthHeaders) 
         .from('whatsapp_numbers')
         .update({ 
           qr_code: result.base64 || result.code,
-          evolution_status: 'connecting' // NOVO: Atualizar status
+          evolution_status: 'connecting'
         })
         .eq('id', whatsappData.id);
 
@@ -241,7 +240,6 @@ export async function getInstanceStatus(instanceName: string, authHeaders: AuthH
   const result = await response.json();
   console.log('Instance status response from Evolution API:', result);
 
-  // ===== ATUALIZADO: Usar novos campos e instance_name =====
   if (result[0]) {
     const connectionStatus = result[0].connectionStatus || result[0].instance?.state;
     const isConnected = connectionStatus === 'open';
@@ -252,11 +250,11 @@ export async function getInstanceStatus(instanceName: string, authHeaders: AuthH
       .from('whatsapp_numbers')
       .update({
         is_connected: isConnected,
-        evolution_status: isConnected ? 'connected' : 'disconnected', // NOVO CAMPO
-        last_connected_at: isConnected ? new Date().toISOString() : null, // NOVO CAMPO
-        qr_code: isConnected ? null : undefined // Limpar QR code se conectado
+        evolution_status: isConnected ? 'connected' : 'disconnected',
+        last_connected_at: isConnected ? new Date().toISOString() : null,
+        qr_code: isConnected ? null : undefined
       })
-      .eq('instance_name', instanceName); // MUDANÇA: usar instance_name
+      .eq('instance_name', instanceName);
 
     if (updateError) {
       console.error('Error updating connection status in database:', updateError);
@@ -287,16 +285,15 @@ export async function logoutInstance(instanceName: string, authHeaders: AuthHead
   const result = await response.json();
   console.log('Instance logged out successfully:', result);
 
-  // ===== ATUALIZADO: Usar novos campos e instance_name =====
   const { error: updateError } = await supabase
     .from('whatsapp_numbers')
     .update({
       is_connected: false,
-      evolution_status: 'disconnected', // NOVO CAMPO
-      qr_code: null, // Limpar QR code quando desconectar
-      connection_attempts: 0 // NOVO: Resetar tentativas
+      evolution_status: 'disconnected',
+      qr_code: null,
+      connection_attempts: 0
     })
-    .eq('instance_name', instanceName); // MUDANÇA: usar instance_name
+    .eq('instance_name', instanceName);
 
   if (updateError) {
     console.error('Error updating disconnection status in database:', updateError);
