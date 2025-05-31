@@ -5,7 +5,12 @@ import type { AuthHeaders } from './types.ts';
 
 const EVOLUTION_API_URL = Deno.env.get('EVOLUTION_API_URL') ?? '';
 
-export async function createInstance(instanceName: string, agentId: string, number: string, authHeaders: AuthHeaders) {
+export async function createInstance(
+  instanceName: string,
+  agentId: string,
+  number: string,
+  authHeaders: AuthHeaders
+) {
   console.log('🟡 [EVOLUTION] === STARTING INSTANCE CREATION ===');
   console.log('🟡 [EVOLUTION] Instance Name:', instanceName);
   console.log('🟡 [EVOLUTION] Agent ID:', agentId);
@@ -13,7 +18,7 @@ export async function createInstance(instanceName: string, agentId: string, numb
   console.log('🟡 [EVOLUTION] Auth Headers:', JSON.stringify(authHeaders, null, 2));
 
   try {
-    // Buscar dados do agente
+    // 1) Buscar dados do agente no Supabase
     console.log('🟡 [EVOLUTION] Fetching agent data from database...');
     const { data: agent, error: agentError } = await supabase
       .from('agents')
@@ -27,36 +32,33 @@ export async function createInstance(instanceName: string, agentId: string, numb
       console.error('🔴 [EVOLUTION] Agent query error:', agentError);
       throw new Error(`Database error: ${agentError.message}`);
     }
-
     if (!agent) {
       console.error('🔴 [EVOLUTION] Agent not found with ID:', agentId);
       throw new Error(`Agent not found with ID: ${agentId}`);
     }
-
     console.log('🟢 [EVOLUTION] Agent found:', agent.name);
 
-    // Criar identificador único concatenando nome da instância com número
+    // 2) Montar nome único da instância
     const uniqueInstanceName = `${instanceName}-${number}`;
     console.log('🟡 [EVOLUTION] Unique instance name:', uniqueInstanceName);
 
-    // ===== OBRIGATÓRIO: Configurar Chatwoot =====
+    // 3) Configurar Chatwoot (conta, agente e inbox)
     console.log('🟡 [EVOLUTION] Starting Chatwoot setup...');
     const chatwootSetup = await getOrCreateChatwootSetup(agentId, {
       id: agentId,
       name: agent.name,
-      email: `${agentId}@temp.com` // Email temporário
+      email: `${agentId}@temp.com`
     });
-
     console.log('🟢 [EVOLUTION] Chatwoot setup completed:', chatwootSetup);
 
-    // Configurar webhook URL
+    // 4) Configurar webhook da Evolution que o Chatwoot receberá
     const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/evolution-webhook`;
     console.log('🟡 [EVOLUTION] Webhook URL:', webhookUrl);
 
-    // ===== Criar instância na Evolution API com integração Chatwoot OBRIGATÓRIA =====
+    // 5) Montar payload para criar instância na Evolution, incluindo chatwootInboxId
     const instanceData = {
       instanceName: uniqueInstanceName,
-      token: agentId, // Usar agentId como token
+      token: agentId,               // aqui usamos o agentId como token para a Evolution
       qrcode: false,
       number: number,
       integration: "WHATSAPP-BAILEYS",
@@ -73,15 +75,16 @@ export async function createInstance(instanceName: string, agentId: string, numb
         base64: true,
         events: WEBHOOK_EVENTS
       },
-      // ===== OBRIGATÓRIO: Configuração Chatwoot integrada =====
-      chatwootAccountId: String(chatwootSetup.accountId),
+      // ===== CONFIGURAÇÃO DO CHATWOOT =====
+      chatwootAccountId: String(chatwootSetup.accountId),   // string
       chatwootToken: chatwootSetup.agentToken,
-      chatwootUrl: "https://app.testeia.com",
+      chatwootUrl: "https://app.testeia.com",               // URL do seu Chatwoot
+      chatwootInboxId: String(chatwootSetup.inboxId),       // string
       chatwootSignMsg: true,
       chatwootReopenConversation: true,
       chatwootConversationPending: false,
       chatwootImportContacts: true,
-      chatwootNameInbox: `WhatsApp ${agent.name}`,
+      chatwootNameInbox: `WhatsApp ${agent.name}`,          // nome de identificação
       chatwootMergeBrazilContacts: true,
       chatwootImportMessages: true,
       chatwootDaysLimitImportMessages: 30,
@@ -101,9 +104,8 @@ export async function createInstance(instanceName: string, agentId: string, numb
 
     console.log('🟡 [EVOLUTION] Response Status:', createResponse.status);
     console.log('🟡 [EVOLUTION] Response Status Text:', createResponse.statusText);
-    
-    // Log headers da resposta
-    const responseHeaders = {};
+
+    const responseHeaders: Record<string, string> = {};
     createResponse.headers.forEach((value, key) => {
       responseHeaders[key] = value;
     });
@@ -129,18 +131,19 @@ export async function createInstance(instanceName: string, agentId: string, numb
       throw new Error(`Invalid JSON response from Evolution API: ${responseText}`);
     }
 
-    // ===== Salvar dados completos na base de dados com novos campos =====
+    // 6) Salvar dados da instância no Supabase, incluindo campos do Chatwoot
     console.log('🟡 [EVOLUTION] Saving data to database...');
     const { error: whatsappError } = await supabase
       .from('whatsapp_numbers')
       .upsert({
         agent_id: agentId,
         instance_name: uniqueInstanceName,
-        phone_number: uniqueInstanceName, // Manter compatibilidade
-        is_connected: false, // SEMPRE false inicialmente
+        phone_number: uniqueInstanceName,
+        is_connected: false,
         evolution_status: 'disconnected',
         chatwoot_account_id: chatwootSetup.accountId,
         chatwoot_agent_token: chatwootSetup.agentToken,
+        chatwoot_inbox_id: chatwootSetup.inboxId,
         session_data: instanceResult,
         connection_attempts: 0,
         last_connected_at: null
@@ -173,7 +176,10 @@ export async function createInstance(instanceName: string, agentId: string, numb
   }
 }
 
-export async function configureWebhook(instanceName: string, authHeaders: AuthHeaders) {
+export async function configureWebhook(
+  instanceName: string,
+  authHeaders: AuthHeaders
+) {
   console.log('🟡 [EVOLUTION] === CONFIGURING WEBHOOK ===');
   console.log('🟡 [EVOLUTION] Instance Name:', instanceName);
 
@@ -189,11 +195,14 @@ export async function configureWebhook(instanceName: string, authHeaders: AuthHe
 
   console.log('🟡 [EVOLUTION] Webhook Config:', JSON.stringify(webhookConfig, null, 2));
 
-  const response = await fetch(`${EVOLUTION_API_URL}/webhook/set/${instanceName}`, {
-    method: 'POST',
-    headers: authHeaders,
-    body: JSON.stringify(webhookConfig)
-  });
+  const response = await fetch(
+    `${EVOLUTION_API_URL}/webhook/set/${instanceName}`,
+    {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify(webhookConfig)
+    }
+  );
 
   console.log('🟡 [EVOLUTION] Webhook Response Status:', response.status);
 
@@ -211,14 +220,20 @@ export async function configureWebhook(instanceName: string, authHeaders: AuthHe
   });
 }
 
-export async function getQRCode(instanceName: string, authHeaders: AuthHeaders) {
+export async function getQRCode(
+  instanceName: string,
+  authHeaders: AuthHeaders
+) {
   console.log('🟡 [EVOLUTION] === GETTING QR CODE ===');
   console.log('🟡 [EVOLUTION] Instance Name:', instanceName);
 
-  const response = await fetch(`${EVOLUTION_API_URL}/instance/connect/${instanceName}`, {
-    method: 'GET',
-    headers: authHeaders
-  });
+  const response = await fetch(
+    `${EVOLUTION_API_URL}/instance/connect/${instanceName}`,
+    {
+      method: 'GET',
+      headers: authHeaders
+    }
+  );
 
   console.log('🟡 [EVOLUTION] QR Code Response Status:', response.status);
 
@@ -265,14 +280,20 @@ export async function getQRCode(instanceName: string, authHeaders: AuthHeaders) 
   });
 }
 
-export async function getInstanceStatus(instanceName: string, authHeaders: AuthHeaders) {
+export async function getInstanceStatus(
+  instanceName: string,
+  authHeaders: AuthHeaders
+) {
   console.log('🟡 [EVOLUTION] === GETTING INSTANCE STATUS ===');
   console.log('🟡 [EVOLUTION] Instance Name:', instanceName);
 
-  const response = await fetch(`${EVOLUTION_API_URL}/instance/fetchInstances?instanceName=${instanceName}`, {
-    method: 'GET',
-    headers: authHeaders
-  });
+  const response = await fetch(
+    `${EVOLUTION_API_URL}/instance/fetchInstances?instanceName=${instanceName}`,
+    {
+      method: 'GET',
+      headers: authHeaders
+    }
+  );
 
   console.log('🟡 [EVOLUTION] Status Response:', response.status);
 
@@ -288,8 +309,12 @@ export async function getInstanceStatus(instanceName: string, authHeaders: AuthH
   if (result[0]) {
     const connectionStatus = result[0].connectionStatus || result[0].instance?.state;
     const isConnected = connectionStatus === 'open';
-    
-    console.log('🟡 [EVOLUTION] Updating connection status in database:', { instanceName, isConnected, connectionStatus });
+
+    console.log('🟡 [EVOLUTION] Updating connection status in database:', {
+      instanceName,
+      isConnected,
+      connectionStatus
+    });
 
     const { error: updateError } = await supabase
       .from('whatsapp_numbers')
@@ -313,14 +338,20 @@ export async function getInstanceStatus(instanceName: string, authHeaders: AuthH
   });
 }
 
-export async function logoutInstance(instanceName: string, authHeaders: AuthHeaders) {
+export async function logoutInstance(
+  instanceName: string,
+  authHeaders: AuthHeaders
+) {
   console.log('🟡 [EVOLUTION] === LOGGING OUT INSTANCE ===');
   console.log('🟡 [EVOLUTION] Instance Name:', instanceName);
 
-  const response = await fetch(`${EVOLUTION_API_URL}/instance/logout/${instanceName}`, {
-    method: 'DELETE',
-    headers: authHeaders
-  });
+  const response = await fetch(
+    `${EVOLUTION_API_URL}/instance/logout/${instanceName}`,
+    {
+      method: 'DELETE',
+      headers: authHeaders
+    }
+  );
 
   console.log('🟡 [EVOLUTION] Logout Response Status:', response.status);
 
