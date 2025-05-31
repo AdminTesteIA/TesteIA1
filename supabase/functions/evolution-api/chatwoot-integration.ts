@@ -188,13 +188,12 @@ export async function createChatwootAgent(accountId: number, agentData: any): Pr
   } catch (parseError) {
     console.error('🔴 [CHATWOOT] JSON Parse Error:', parseError);
     console.error('🔴 [CHATWOOT] Raw Response:', responseText);
-    throw new Error(`Invalid JSON response from Chatwoot: ${responseText}`);
+    throw new Error(`Invalid JSON response from Chatwoot agent creation: ${responseText}`);
   }
 }
 
 export async function createChatwootInbox(
   accountId: number,
-  agentToken: string,
   inboxName: string,
   webhookNotificationUrl: string = ""
 ): Promise<number> {
@@ -224,7 +223,8 @@ export async function createChatwootInbox(
   const response = await fetch(apiUrl, {
     method: "POST",
     headers: {
-      "api_access_token": agentToken,
+      // ALTERAÇÃO: usar PLATFORM_TOKEN em vez de agentToken
+      "api_access_token": CHATWOOT_CONFIG.PLATFORM_TOKEN,
       "Content-Type": "application/json"
     },
     body: JSON.stringify(body)
@@ -337,12 +337,12 @@ export async function getOrCreateChatwootSetup(agentId: string, agentData: any):
   const accountId = await createChatwootAccount(enrichedAgentData);
   const agentToken = await createChatwootAgent(accountId, enrichedAgentData);
 
-  // Criar a Inbox no Chatwoot
+  // Criar a Inbox no Chatwoot usando PLATFORM_TOKEN
   const inboxName = `WhatsApp ${agentData.name}`;
-  // URL de webhook que o Chatwoot usará para enviar callbacks (se desejar receber notificações de Chatwoot para sua aplicação).
-  // Se não precisar, pode usar string vazia.
-  const webhookNotificationUrl = ""; 
-  const inboxId = await createChatwootInbox(accountId, agentToken, inboxName, webhookNotificationUrl);
+  // Se quiser receber callbacks de eventos do Chatwoot, configure a URL abaixo. 
+  // Caso não precise, deixe string vazia.
+  const webhookNotificationUrl = "";
+  const inboxId = await createChatwootInbox(accountId, inboxName, webhookNotificationUrl);
 
   console.log('🟢 [CHATWOOT] Setup completed successfully');
   console.log('🟢 [CHATWOOT] Final Account ID:', accountId);
