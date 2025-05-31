@@ -87,6 +87,7 @@ export async function createInstance(
       chatwootNameInbox: `WhatsApp ${agent.name}`,          // nome de identificação
       chatwootMergeBrazilContacts: true,
       chatwootImportMessages: true,
+      autoCreate: true,
       chatwootDaysLimitImportMessages: 30,
       chatwootOrganization: agent.name,
       chatwootLogo: ""
