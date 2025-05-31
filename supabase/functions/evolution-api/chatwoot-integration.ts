@@ -42,7 +42,7 @@ export async function createChatwootAccount(agentData: any): Promise<number> {
 export async function createChatwootAgent(accountId: number, agentData: any): Promise<string> {
   console.log('Creating Chatwoot agent for account:', accountId);
   
-  // CORREÇÃO: Usar Platform API para criar o agente em vez da API normal
+  // CORREÇÃO: Usar Platform API para criar o agente
   const response = await fetch(`${CHATWOOT_CONFIG.URL}/platform/api/v1/accounts/${accountId}/agents`, {
     method: 'POST',
     headers: {
