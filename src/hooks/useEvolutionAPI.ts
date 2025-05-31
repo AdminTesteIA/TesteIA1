@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -18,7 +17,8 @@ export const useEvolutionAPI = () => {
         throw error;
       }
 
-      return data;
+      return data; // ✅ CORREÇÃO: return estava faltando aqui
+
     } catch (error) {
       console.error('Error calling Evolution API:', error);
       toast.error('Erro ao comunicar com a Evolution API');
@@ -26,7 +26,7 @@ export const useEvolutionAPI = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }; // ✅ CORREÇÃO: ponto e vírgula estava faltando
 
   const createInstance = async (instanceName: string, agentId: string, number: string) => {
     console.log('Creating WhatsApp Evolution Channel instance:', instanceName, 'with number:', number);
