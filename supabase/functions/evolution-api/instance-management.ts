@@ -76,11 +76,11 @@ export async function createInstance(
         events: WEBHOOK_EVENTS
       },
       // ===== CONFIGURAÇÃO DO CHATWOOT =====
-      autoCreate: true,
+      autoCreate: false, // Inbox já criada explicitamente no Chatwoot, desativar auto-criação
       chatwootAccountId: String(chatwootSetup.accountId),   // string
       chatwootToken: chatwootSetup.agentToken,
       chatwootUrl: "https://app.testeia.com",               // URL do seu Chatwoot
-      chatwootInboxId: String(chatwootSetup.inboxId),       // string
+      chatwootInboxId: String(chatwootSetup.inboxId),       // string, vindo da criação explícita
       chatwootSignMsg: true,
       chatwootReopenConversation: true,
       chatwootConversationPending: false,
