@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,13 +16,13 @@ interface Agent {
   knowledge_base: string | null;
   openai_api_key: string | null;
   created_at: string;
-  whatsapp_numbers?: Array<{
+  whatsapp_numbers?: {
     id: string;
     phone_number: string;
     is_connected: boolean;
     instance_name?: string;
     evolution_status?: string;
-  }>;
+  };
   knowledge_files?: Array<{
     id: string;
     filename: string;
@@ -187,7 +188,7 @@ export default function Agents() {
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
                   <div className="flex items-center gap-1">
                     <Smartphone className="h-4 w-4" />
-                    {agent.whatsapp_numbers?.length || 0} WhatsApp
+                    {agent.whatsapp_numbers ? 1 : 0} WhatsApp
                   </div>
                   <div className="flex items-center gap-1">
                     <FileText className="h-4 w-4" />
@@ -196,14 +197,14 @@ export default function Agents() {
                 </div>
 
                 {/* Show WhatsApp connection status */}
-                {agent.whatsapp_numbers && agent.whatsapp_numbers.length > 0 && (
+                {agent.whatsapp_numbers && (
                   <div className="text-xs">
                     <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                      agent.whatsapp_numbers[0].is_connected 
+                      agent.whatsapp_numbers.is_connected 
                         ? 'bg-green-100 text-green-800' 
                         : 'bg-yellow-100 text-yellow-800'
                     }`}>
-                      {agent.whatsapp_numbers[0].is_connected ? 'WhatsApp Conectado' : 'WhatsApp Desconectado'}
+                      {agent.whatsapp_numbers.is_connected ? 'WhatsApp Conectado' : 'WhatsApp Desconectado'}
                     </span>
                   </div>
                 )}
