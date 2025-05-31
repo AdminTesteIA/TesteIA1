@@ -9,7 +9,7 @@ const CHATWOOT_CONFIG = {
 export interface ChatwootSetup {
   accountId: number;
   agentToken: string;
-  // inboxId foi removido, pois a criação da inbox será tratada pela Evolution API
+  inboxId: number; // Adicionado para armazenar o ID da inbox
 }
 
 /**
@@ -212,7 +212,6 @@ export async function createChatwootAgent(
   try {
     result = JSON.parse(responseText);
     console.log('🟢 [CHATWOOT] Agent Created Successfully:', JSON.stringify(result, null, 2));
-    // O result.access_token virá do usuário que acabamos de criar
     console.log(
       '🟢 [CHATWOOT] Agent Access Token:',
       result.access_token ? 'Present' : 'Missing'
@@ -222,6 +221,72 @@ export async function createChatwootAgent(
     console.error('🔴 [CHATWOOT] JSON Parse Error:', parseError);
     console.error('🔴 [CHATWOOT] Raw Response:', responseText);
     throw new Error(`Invalid JSON response from Chatwoot agent creation: ${responseText}`);
+  }
+}
+
+/**
+ * Cria uma inbox no Chatwoot para a conta especificada e retorna o ID da inbox.
+ */
+export async function createChatwootInbox(
+  accountId: number,
+  agentData: any,
+  agentToken: string
+): Promise<number> {
+  console.log('🟡 [CHATWOOT] === STARTING INBOX CREATION ===');
+  console.log('🟡 [CHATWOOT] Account ID:', accountId);
+  console.log('🟡 [CHATWOOT] Agent Data:', JSON.stringify(agentData, null, 2));
+
+  const requestBody = {
+    name: `WhatsApp ${agentData.name}`,
+    channel: {
+      type: 'api', // Usar 'api' para integração customizada com Evolution API
+    },
+  };
+
+  console.log('🟡 [CHATWOOT] Creating inbox with body:', JSON.stringify(requestBody, null, 2));
+  console.log('🟡 [CHATWOOT] Inbox creation URL:', `${CHATWOOT_CONFIG.URL}/api/v1/accounts/${accountId}/inboxes`);
+
+  const response = await fetch(
+    `${CHATWOOT_CONFIG.URL}/api/v1/accounts/${accountId}/inboxes`,
+    {
+      method: 'POST',
+      headers: {
+        'api_access_token': agentToken,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    }
+  );
+
+  console.log('🟡 [CHATWOOT] Inbox creation response status:', response.status);
+  console.log('🟡 [CHATWOOT] Inbox creation response status text:', response.statusText);
+
+  const responseHeaders: Record<string, string> = {};
+  response.headers.forEach((value, key) => {
+    responseHeaders[key] = value;
+  });
+  console.log('🟡 [CHATWOOT] Inbox creation response headers:', JSON.stringify(responseHeaders, null, 2));
+
+  const responseText = await response.text();
+  console.log('🟡 [CHATWOOT] Inbox creation response body:', responseText);
+
+  if (!response.ok) {
+    console.error('🔴 [CHATWOOT] INBOX CREATION FAILED');
+    console.error('🔴 [CHATWOOT] Status:', response.status);
+    console.error('🔴 [CHATWOOT] Error Body:', responseText);
+    throw new Error(`Failed to create Chatwoot inbox: ${response.status} - ${responseText}`);
+  }
+
+  let result;
+  try {
+    result = JSON.parse(responseText);
+    console.log('🟢 [CHATWOOT] Inbox Created Successfully:', JSON.stringify(result, null, 2));
+    console.log('🟢 [CHATWOOT] Inbox ID:', result.id);
+    return result.id;
+  } catch (parseError) {
+    console.error('🔴 [CHATWOOT] JSON Parse Error:', parseError);
+    console.error('🔴 [CHATWOOT] Raw Response:', responseText);
+    throw new Error(`Invalid JSON response from Chatwoot inbox creation: ${responseText}`);
   }
 }
 
@@ -250,8 +315,7 @@ export async function validateChatwootToken(accountId: number, token: string): P
 }
 
 /**
- * Garante a criação ou reutilização de ChatwootSetup (conta + agentToken).
- * A criação da inbox é removida, pois ficará a cargo da Evolution API.
+ * Garante a criação ou reutilização de ChatwootSetup (conta + agentToken + inboxId).
  */
 export async function getOrCreateChatwootSetup(
   agentId: string,
@@ -282,11 +346,11 @@ export async function getOrCreateChatwootSetup(
 
   console.log('🟡 [CHATWOOT] Enriched Agent Data:', JSON.stringify(enrichedAgentData, null, 2));
 
-  // 3) Verificar se já existe configuração salva (accountId + agentToken)
+  // 3) Verificar se já existe configuração salva (accountId + agentToken + inboxId)
   console.log('🟡 [CHATWOOT] Checking for existing configuration...');
   const { data: existingWhatsapp } = await supabase
     .from('whatsapp_numbers')
-    .select('chatwoot_account_id, chatwoot_agent_token')
+    .select('chatwoot_account_id, chatwoot_agent_token, chatwoot_inbox_id')
     .eq('agent_id', agentId)
     .single();
 
@@ -294,7 +358,8 @@ export async function getOrCreateChatwootSetup(
 
   if (
     existingWhatsapp?.chatwoot_account_id &&
-    existingWhatsapp?.chatwoot_agent_token
+    existingWhatsapp?.chatwoot_agent_token &&
+    existingWhatsapp?.chatwoot_inbox_id
   ) {
     console.log('🟡 [CHATWOOT] Found existing configuration, validating token...');
     const isValid = await validateChatwootToken(
@@ -306,6 +371,7 @@ export async function getOrCreateChatwootSetup(
       return {
         accountId: existingWhatsapp.chatwoot_account_id,
         agentToken: existingWhatsapp.chatwoot_agent_token,
+        inboxId: existingWhatsapp.chatwoot_inbox_id,
       };
     }
     console.log('🟡 [CHATWOOT] Token expired, creating new setup');
@@ -313,16 +379,18 @@ export async function getOrCreateChatwootSetup(
     console.log('🟡 [CHATWOOT] No existing configuration found');
   }
 
-  // 4) Criar nova configuração: conta e agente
+  // 4) Criar nova configuração: conta, agente e inbox
   console.log('🟡 [CHATWOOT] Creating new Chatwoot setup with unique user data...');
   const accountId = await createChatwootAccount(enrichedAgentData);
   const agentToken = await createChatwootAgent(accountId, enrichedAgentData);
+  const inboxId = await createChatwootInbox(accountId, enrichedAgentData, agentToken);
 
   console.log('🟢 [CHATWOOT] Setup completed successfully');
   console.log('🟢 [CHATWOOT] Final Account ID:', accountId);
   console.log('🟢 [CHATWOOT] Final Agent Token (first 10 chars):', agentToken.substring(0, 10));
+  console.log('🟢 [CHATWOOT] Final Inbox ID:', inboxId);
 
-  // 5) Salvar no Supabase (sem inboxId)
+  // 5) Salvar no Supabase
   const { error: upsertError } = await supabase
     .from('whatsapp_numbers')
     .upsert(
@@ -330,6 +398,7 @@ export async function getOrCreateChatwootSetup(
         agent_id: agentId,
         chatwoot_account_id: accountId,
         chatwoot_agent_token: agentToken,
+        chatwoot_inbox_id: inboxId,
       },
       {
         onConflict: 'agent_id',
@@ -345,5 +414,6 @@ export async function getOrCreateChatwootSetup(
   return {
     accountId,
     agentToken,
+    inboxId,
   };
 }
