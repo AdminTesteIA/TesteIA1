@@ -76,6 +76,8 @@ export async function createInstance(
         events: WEBHOOK_EVENTS
       },
       // ===== CONFIGURAÇÃO DO CHATWOOT =====
+      autoCreate: true,
+      "auto_create: true",
       chatwootAccountId: String(chatwootSetup.accountId),   // string
       chatwootToken: chatwootSetup.agentToken,
       chatwootUrl: "https://app.testeia.com",               // URL do seu Chatwoot
@@ -87,7 +89,6 @@ export async function createInstance(
       chatwootNameInbox: `WhatsApp ${agent.name}`,          // nome de identificação
       chatwootMergeBrazilContacts: true,
       chatwootImportMessages: true,
-      autoCreate: true,
       chatwootDaysLimitImportMessages: 30,
       chatwootOrganization: agent.name,
       chatwootLogo: ""
