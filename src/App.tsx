@@ -43,7 +43,7 @@ const App = () => {
                 </ProtectedRoute>
               }>
                 <Route index element={<Agents />} />
-                <Route path="new" element={<CreateAgent />} />
+                <Route path="create" element={<CreateAgent />} />
                 <Route path=":id/edit" element={<EditAgent />} />
               </Route>
               <Route path="/conversations" element={
