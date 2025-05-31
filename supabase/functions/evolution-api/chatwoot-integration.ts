@@ -71,7 +71,9 @@ export async function createChatwootAgent(accountId: number, agentData: any): Pr
   console.log('🟡 [CHATWOOT] === STARTING AGENT CREATION ===');
   console.log('🟡 [CHATWOOT] Account ID:', accountId);
   console.log('🟡 [CHATWOOT] Agent Data:', JSON.stringify(agentData, null, 2));
-  console.log('🟡 [CHATWOOT] URL:', `${CHATWOOT_CONFIG.URL}/platform/api/v1/accounts/${accountId}/agents`);
+  
+  // ✅ CORREÇÃO: Usar account_users, não agents
+  console.log('🟡 [CHATWOOT] URL:', `${CHATWOOT_CONFIG.URL}/platform/api/v1/accounts/${accountId}/account_users`);
   console.log('🟡 [CHATWOOT] Platform Token (first 10 chars):', CHATWOOT_CONFIG.PLATFORM_TOKEN.substring(0, 10));
   
   const requestBody = {
@@ -82,8 +84,8 @@ export async function createChatwootAgent(accountId: number, agentData: any): Pr
   
   console.log('🟡 [CHATWOOT] Request Body:', JSON.stringify(requestBody, null, 2));
   
-  // CORREÇÃO: Usar Platform API para criar o agente
-  const response = await fetch(`${CHATWOOT_CONFIG.URL}/platform/api/v1/accounts/${accountId}/agents`, {
+  // ✅ MUDANÇA: account_users em vez de agents
+  const response = await fetch(`${CHATWOOT_CONFIG.URL}/platform/api/v1/accounts/${accountId}/account_users`, {
     method: 'POST',
     headers: {
       'api_access_token': CHATWOOT_CONFIG.PLATFORM_TOKEN,
