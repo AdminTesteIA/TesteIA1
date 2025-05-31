@@ -172,7 +172,7 @@ export async function createChatwootAgent(
   // 2) Criar account_user com ID numérico do usuário
   const requestBody = {
     user_id: userId,
-    role: 'agent',
+    role: 'administrator',
   };
 
   console.log('🟡 [CHATWOOT] Creating account_user with body:', JSON.stringify(requestBody, null, 2));
