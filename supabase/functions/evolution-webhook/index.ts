@@ -1,6 +1,7 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
 
 const corsHeaders = {
@@ -54,9 +55,9 @@ async function processMessage(message: any, instanceName: string) {
     // Extrair dados da mensagem
     const remoteJid = message.key?.remoteJid;
     const contactNumber = remoteJid ? remoteJid.replace('@s.whatsapp.net', '') : '';
-    const messageContent = message.message?.conversation || 
-                          message.message?.extendedTextMessage?.text || 
-                          'Mensagem não suportada';
+    const messageContent = message.message?.conversation ||
+      message.message?.extendedTextMessage?.text ||
+      'Mensagem não suportada';
     const isFromContact = !message.key?.fromMe;
     const pushName = message.pushName || null;
 
@@ -65,17 +66,19 @@ async function processMessage(message: any, instanceName: string) {
       return;
     }
 
-    // Buscar WhatsApp number pelo instance name
+    // ===== ALTERAÇÃO PRINCIPAL: Usar instance_name em vez de phone_number =====
     const { data: whatsappNumber, error: whatsappError } = await supabase
       .from('whatsapp_numbers')
-      .select('id, agent_id')
-      .eq('phone_number', instanceName)
+      .select('id, agent_id, chatwoot_account_id') // ✅ Adicionar chatwoot_account_id
+      .eq('instance_name', instanceName) // ✅ MUDANÇA: usar instance_name
       .single();
 
     if (whatsappError || !whatsappNumber) {
       console.error('WhatsApp number not found:', instanceName, whatsappError);
       return;
     }
+
+    console.log('WhatsApp number found:', whatsappNumber);
 
     // Buscar ou criar conversa
     let conversation;
@@ -88,6 +91,7 @@ async function processMessage(message: any, instanceName: string) {
 
     if (existingChat) {
       conversation = existingChat;
+      console.log('Using existing conversation:', conversation.id);
     } else {
       // Criar nova conversa
       const { data: newChat, error: chatError } = await supabase
@@ -100,7 +104,8 @@ async function processMessage(message: any, instanceName: string) {
           last_message_at: new Date().toISOString(),
           metadata: {
             remoteJid: remoteJid,
-            pushName: pushName
+            pushName: pushName,
+            chatwootAccountId: whatsappNumber.chatwoot_account_id // ✅ NOVO: Salvar account ID
           }
         })
         .select()
@@ -110,7 +115,9 @@ async function processMessage(message: any, instanceName: string) {
         console.error('Error creating chat:', chatError);
         return;
       }
+
       conversation = newChat;
+      console.log('Created new conversation:', conversation.id);
     }
 
     // Verificar se mensagem já existe
@@ -139,7 +146,8 @@ async function processMessage(message: any, instanceName: string) {
         instanceId: instanceName,
         metadata: {
           delivery_status: 'delivered',
-          evolution_data: message
+          evolution_data: message,
+          chatwootAccountId: whatsappNumber.chatwoot_account_id // ✅ NOVO: Salvar account ID
         }
       });
 
@@ -148,10 +156,12 @@ async function processMessage(message: any, instanceName: string) {
       return;
     }
 
+    console.log('Message saved successfully');
+
     // Atualizar timestamp da conversa
     await supabase
       .from('chat')
-      .update({ 
+      .update({
         last_message_at: new Date().toISOString(),
         push_name: pushName || conversation.push_name
       })
