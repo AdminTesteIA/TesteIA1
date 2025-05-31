@@ -6,45 +6,52 @@ import type { AuthHeaders } from './types.ts';
 const EVOLUTION_API_URL = Deno.env.get('EVOLUTION_API_URL') ?? '';
 
 export async function createInstance(instanceName: string, agentId: string, number: string, authHeaders: AuthHeaders) {
-  console.log('Creating Evolution API instance:', instanceName, 'for agent:', agentId, 'with number:', number);
+  console.log('🟡 [EVOLUTION] === STARTING INSTANCE CREATION ===');
+  console.log('🟡 [EVOLUTION] Instance Name:', instanceName);
+  console.log('🟡 [EVOLUTION] Agent ID:', agentId);
+  console.log('🟡 [EVOLUTION] Number:', number);
+  console.log('🟡 [EVOLUTION] Auth Headers:', JSON.stringify(authHeaders, null, 2));
 
   try {
     // Buscar dados do agente
+    console.log('🟡 [EVOLUTION] Fetching agent data from database...');
     const { data: agent, error: agentError } = await supabase
       .from('agents')
       .select('*')
       .eq('id', agentId)
       .maybeSingle();
 
-    console.log('Agent query result:', { agent, agentError });
+    console.log('🟡 [EVOLUTION] Agent query result:', { agent, agentError });
 
     if (agentError) {
-      console.error('Agent query error:', agentError);
+      console.error('🔴 [EVOLUTION] Agent query error:', agentError);
       throw new Error(`Database error: ${agentError.message}`);
     }
 
     if (!agent) {
-      console.error('Agent not found with ID:', agentId);
+      console.error('🔴 [EVOLUTION] Agent not found with ID:', agentId);
       throw new Error(`Agent not found with ID: ${agentId}`);
     }
 
-    console.log('Agent found:', agent.name);
+    console.log('🟢 [EVOLUTION] Agent found:', agent.name);
 
     // Criar identificador único concatenando nome da instância com número
     const uniqueInstanceName = `${instanceName}-${number}`;
-    console.log('Unique instance name:', uniqueInstanceName);
+    console.log('🟡 [EVOLUTION] Unique instance name:', uniqueInstanceName);
 
     // ===== OBRIGATÓRIO: Configurar Chatwoot =====
+    console.log('🟡 [EVOLUTION] Starting Chatwoot setup...');
     const chatwootSetup = await getOrCreateChatwootSetup(agentId, {
       id: agentId,
       name: agent.name,
       email: `${agentId}@temp.com` // Email temporário
     });
 
-    console.log('Chatwoot setup ready:', chatwootSetup);
+    console.log('🟢 [EVOLUTION] Chatwoot setup completed:', chatwootSetup);
 
     // Configurar webhook URL
     const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/evolution-webhook`;
+    console.log('🟡 [EVOLUTION] Webhook URL:', webhookUrl);
 
     // ===== Criar instância na Evolution API com integração Chatwoot OBRIGATÓRIA =====
     const instanceData = {
@@ -82,7 +89,9 @@ export async function createInstance(instanceName: string, agentId: string, numb
       chatwootLogo: ""
     };
 
-    console.log('Creating Evolution API instance with mandatory Chatwoot integration');
+    console.log('🟡 [EVOLUTION] === CREATING EVOLUTION INSTANCE ===');
+    console.log('🟡 [EVOLUTION] URL:', `${EVOLUTION_API_URL}/instance/create`);
+    console.log('🟡 [EVOLUTION] Instance Data:', JSON.stringify(instanceData, null, 2));
 
     const createResponse = await fetch(`${EVOLUTION_API_URL}/instance/create`, {
       method: 'POST',
@@ -90,16 +99,38 @@ export async function createInstance(instanceName: string, agentId: string, numb
       body: JSON.stringify(instanceData)
     });
 
+    console.log('🟡 [EVOLUTION] Response Status:', createResponse.status);
+    console.log('🟡 [EVOLUTION] Response Status Text:', createResponse.statusText);
+    
+    // Log headers da resposta
+    const responseHeaders = {};
+    createResponse.headers.forEach((value, key) => {
+      responseHeaders[key] = value;
+    });
+    console.log('🟡 [EVOLUTION] Response Headers:', JSON.stringify(responseHeaders, null, 2));
+
+    const responseText = await createResponse.text();
+    console.log('🟡 [EVOLUTION] Response Body (raw):', responseText);
+
     if (!createResponse.ok) {
-      const errorData = await createResponse.text();
-      console.error('Error creating instance in Evolution API:', errorData);
-      throw new Error(`Failed to create instance: ${errorData}`);
+      console.error('🔴 [EVOLUTION] INSTANCE CREATION FAILED');
+      console.error('🔴 [EVOLUTION] Status:', createResponse.status);
+      console.error('🔴 [EVOLUTION] Error Body:', responseText);
+      throw new Error(`Failed to create instance: ${createResponse.status} - ${responseText}`);
     }
 
-    const instanceResult = await createResponse.json();
-    console.log('Instance created successfully in Evolution API:', instanceResult);
+    let instanceResult;
+    try {
+      instanceResult = JSON.parse(responseText);
+      console.log('🟢 [EVOLUTION] Instance Created Successfully:', JSON.stringify(instanceResult, null, 2));
+    } catch (parseError) {
+      console.error('🔴 [EVOLUTION] JSON Parse Error:', parseError);
+      console.error('🔴 [EVOLUTION] Raw Response:', responseText);
+      throw new Error(`Invalid JSON response from Evolution API: ${responseText}`);
+    }
 
     // ===== Salvar dados completos na base de dados com novos campos =====
+    console.log('🟡 [EVOLUTION] Saving data to database...');
     const { error: whatsappError } = await supabase
       .from('whatsapp_numbers')
       .upsert({
@@ -118,11 +149,13 @@ export async function createInstance(instanceName: string, agentId: string, numb
       });
 
     if (whatsappError) {
-      console.error('Error saving WhatsApp number:', whatsappError);
+      console.error('🔴 [EVOLUTION] Error saving WhatsApp number:', whatsappError);
       throw new Error(`Failed to save WhatsApp number: ${whatsappError.message}`);
     } else {
-      console.log('WhatsApp data saved successfully with Chatwoot integration');
+      console.log('🟢 [EVOLUTION] WhatsApp data saved successfully with Chatwoot integration');
     }
+
+    console.log('🟢 [EVOLUTION] === INSTANCE CREATION COMPLETED SUCCESSFULLY ===');
 
     return new Response(JSON.stringify({
       success: true,
@@ -134,15 +167,18 @@ export async function createInstance(instanceName: string, agentId: string, numb
     });
 
   } catch (error) {
-    console.error('Error in createInstance:', error);
+    console.error('🔴 [EVOLUTION] CRITICAL ERROR in createInstance:', error);
+    console.error('🔴 [EVOLUTION] Error Stack:', error.stack);
     throw error;
   }
 }
 
 export async function configureWebhook(instanceName: string, authHeaders: AuthHeaders) {
-  console.log('Configuring webhook for instance:', instanceName);
+  console.log('🟡 [EVOLUTION] === CONFIGURING WEBHOOK ===');
+  console.log('🟡 [EVOLUTION] Instance Name:', instanceName);
 
   const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/evolution-webhook`;
+  console.log('🟡 [EVOLUTION] Webhook URL:', webhookUrl);
 
   const webhookConfig = {
     url: webhookUrl,
@@ -151,7 +187,7 @@ export async function configureWebhook(instanceName: string, authHeaders: AuthHe
     events: WEBHOOK_EVENTS
   };
 
-  console.log('Setting webhook with config:', webhookConfig);
+  console.log('🟡 [EVOLUTION] Webhook Config:', JSON.stringify(webhookConfig, null, 2));
 
   const response = await fetch(`${EVOLUTION_API_URL}/webhook/set/${instanceName}`, {
     method: 'POST',
@@ -159,14 +195,16 @@ export async function configureWebhook(instanceName: string, authHeaders: AuthHe
     body: JSON.stringify(webhookConfig)
   });
 
+  console.log('🟡 [EVOLUTION] Webhook Response Status:', response.status);
+
   if (!response.ok) {
     const errorData = await response.text();
-    console.error('Error setting webhook:', errorData);
+    console.error('🔴 [EVOLUTION] Error setting webhook:', errorData);
     throw new Error(`Failed to set webhook: ${errorData}`);
   }
 
   const result = await response.json();
-  console.log('Webhook configured successfully:', result);
+  console.log('🟢 [EVOLUTION] Webhook configured successfully:', result);
 
   return new Response(JSON.stringify(result), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -174,23 +212,27 @@ export async function configureWebhook(instanceName: string, authHeaders: AuthHe
 }
 
 export async function getQRCode(instanceName: string, authHeaders: AuthHeaders) {
-  console.log('Getting QR Code for instance:', instanceName);
+  console.log('🟡 [EVOLUTION] === GETTING QR CODE ===');
+  console.log('🟡 [EVOLUTION] Instance Name:', instanceName);
 
   const response = await fetch(`${EVOLUTION_API_URL}/instance/connect/${instanceName}`, {
     method: 'GET',
     headers: authHeaders
   });
 
+  console.log('🟡 [EVOLUTION] QR Code Response Status:', response.status);
+
   if (!response.ok) {
     const errorData = await response.text();
-    console.error('Error getting QR code:', errorData);
+    console.error('🔴 [EVOLUTION] Error getting QR code:', errorData);
     throw new Error(`Failed to get QR code: ${errorData}`);
   }
 
   const result = await response.json();
-  console.log('QR Code response from Evolution API:', result);
+  console.log('🟢 [EVOLUTION] QR Code response from Evolution API:', result);
 
   if (result.code) {
+    console.log('🟡 [EVOLUTION] Updating QR code in database...');
     const { data: whatsappData, error: findError } = await supabase
       .from('whatsapp_numbers')
       .select('*')
@@ -198,23 +240,23 @@ export async function getQRCode(instanceName: string, authHeaders: AuthHeaders) 
       .maybeSingle();
 
     if (findError) {
-      console.error('Error finding WhatsApp number:', findError);
+      console.error('🔴 [EVOLUTION] Error finding WhatsApp number:', findError);
     } else if (whatsappData) {
       const { error: updateError } = await supabase
         .from('whatsapp_numbers')
-        .update({ 
+        .update({
           qr_code: result.base64 || result.code,
           evolution_status: 'connecting'
         })
         .eq('id', whatsappData.id);
 
       if (updateError) {
-        console.error('Error updating QR code in database:', updateError);
+        console.error('🔴 [EVOLUTION] Error updating QR code in database:', updateError);
       } else {
-        console.log('QR code updated in database successfully');
+        console.log('🟢 [EVOLUTION] QR code updated in database successfully');
       }
     } else {
-      console.log('WhatsApp number not found for instance:', instanceName);
+      console.log('🟡 [EVOLUTION] WhatsApp number not found for instance:', instanceName);
     }
   }
 
@@ -224,27 +266,30 @@ export async function getQRCode(instanceName: string, authHeaders: AuthHeaders) 
 }
 
 export async function getInstanceStatus(instanceName: string, authHeaders: AuthHeaders) {
-  console.log('Getting instance status:', instanceName);
+  console.log('🟡 [EVOLUTION] === GETTING INSTANCE STATUS ===');
+  console.log('🟡 [EVOLUTION] Instance Name:', instanceName);
 
   const response = await fetch(`${EVOLUTION_API_URL}/instance/fetchInstances?instanceName=${instanceName}`, {
     method: 'GET',
     headers: authHeaders
   });
 
+  console.log('🟡 [EVOLUTION] Status Response:', response.status);
+
   if (!response.ok) {
     const errorData = await response.text();
-    console.error('Error getting instance status:', errorData);
+    console.error('🔴 [EVOLUTION] Error getting instance status:', errorData);
     throw new Error(`Failed to get instance status: ${errorData}`);
   }
 
   const result = await response.json();
-  console.log('Instance status response from Evolution API:', result);
+  console.log('🟢 [EVOLUTION] Instance status response from Evolution API:', result);
 
   if (result[0]) {
     const connectionStatus = result[0].connectionStatus || result[0].instance?.state;
     const isConnected = connectionStatus === 'open';
     
-    console.log('Updating connection status in database:', { instanceName, isConnected, connectionStatus });
+    console.log('🟡 [EVOLUTION] Updating connection status in database:', { instanceName, isConnected, connectionStatus });
 
     const { error: updateError } = await supabase
       .from('whatsapp_numbers')
@@ -257,9 +302,9 @@ export async function getInstanceStatus(instanceName: string, authHeaders: AuthH
       .eq('instance_name', instanceName);
 
     if (updateError) {
-      console.error('Error updating connection status in database:', updateError);
+      console.error('🔴 [EVOLUTION] Error updating connection status in database:', updateError);
     } else {
-      console.log('Connection status updated successfully in database');
+      console.log('🟢 [EVOLUTION] Connection status updated successfully in database');
     }
   }
 
@@ -269,22 +314,26 @@ export async function getInstanceStatus(instanceName: string, authHeaders: AuthH
 }
 
 export async function logoutInstance(instanceName: string, authHeaders: AuthHeaders) {
-  console.log('Logging out instance:', instanceName);
+  console.log('🟡 [EVOLUTION] === LOGGING OUT INSTANCE ===');
+  console.log('🟡 [EVOLUTION] Instance Name:', instanceName);
 
   const response = await fetch(`${EVOLUTION_API_URL}/instance/logout/${instanceName}`, {
     method: 'DELETE',
     headers: authHeaders
   });
 
+  console.log('🟡 [EVOLUTION] Logout Response Status:', response.status);
+
   if (!response.ok) {
     const errorData = await response.text();
-    console.error('Error logging out instance:', errorData);
+    console.error('🔴 [EVOLUTION] Error logging out instance:', errorData);
     throw new Error(`Failed to logout instance: ${errorData}`);
   }
 
   const result = await response.json();
-  console.log('Instance logged out successfully:', result);
+  console.log('🟢 [EVOLUTION] Instance logged out successfully:', result);
 
+  console.log('🟡 [EVOLUTION] Updating disconnection status in database...');
   const { error: updateError } = await supabase
     .from('whatsapp_numbers')
     .update({
@@ -296,9 +345,9 @@ export async function logoutInstance(instanceName: string, authHeaders: AuthHead
     .eq('instance_name', instanceName);
 
   if (updateError) {
-    console.error('Error updating disconnection status in database:', updateError);
+    console.error('🔴 [EVOLUTION] Error updating disconnection status in database:', updateError);
   } else {
-    console.log('Instance marked as disconnected in database');
+    console.log('🟢 [EVOLUTION] Instance marked as disconnected in database');
   }
 
   return new Response(JSON.stringify(result), {
