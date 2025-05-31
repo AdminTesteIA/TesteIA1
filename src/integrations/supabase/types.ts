@@ -43,7 +43,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_agents_user_id"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       knowledge_files: {
         Row: {
@@ -107,9 +115,16 @@ export type Database = {
       whatsapp_numbers: {
         Row: {
           agent_id: string
+          chatwoot_account_id: number | null
+          chatwoot_agent_token: string | null
+          chatwoot_inbox_id: number | null
+          connection_attempts: number | null
           created_at: string
+          evolution_status: string | null
           id: string
+          instance_name: string | null
           is_connected: boolean
+          last_connected_at: string | null
           phone_number: string
           qr_code: string | null
           session_data: Json | null
@@ -117,9 +132,16 @@ export type Database = {
         }
         Insert: {
           agent_id: string
+          chatwoot_account_id?: number | null
+          chatwoot_agent_token?: string | null
+          chatwoot_inbox_id?: number | null
+          connection_attempts?: number | null
           created_at?: string
+          evolution_status?: string | null
           id?: string
+          instance_name?: string | null
           is_connected?: boolean
+          last_connected_at?: string | null
           phone_number: string
           qr_code?: string | null
           session_data?: Json | null
@@ -127,9 +149,16 @@ export type Database = {
         }
         Update: {
           agent_id?: string
+          chatwoot_account_id?: number | null
+          chatwoot_agent_token?: string | null
+          chatwoot_inbox_id?: number | null
+          connection_attempts?: number | null
           created_at?: string
+          evolution_status?: string | null
           id?: string
+          instance_name?: string | null
           is_connected?: boolean
+          last_connected_at?: string | null
           phone_number?: string
           qr_code?: string | null
           session_data?: Json | null
@@ -137,9 +166,9 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "whatsapp_numbers_agent_id_fkey"
+            foreignKeyName: "fk_whatsapp_numbers_agent_id"
             columns: ["agent_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "agents"
             referencedColumns: ["id"]
           },

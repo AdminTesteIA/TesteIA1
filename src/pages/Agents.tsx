@@ -41,7 +41,7 @@ export default function Agents() {
     if (!user) return;
 
     try {
-      // ===== CORREÇÃO PRINCIPAL: Especificar o relacionamento FK =====
+      // Fix the foreign key references to match actual constraint names
       const { data: agentsData, error } = await supabase
         .from('agents')
         .select(`
@@ -53,7 +53,7 @@ export default function Agents() {
             instance_name,
             evolution_status
           ),
-          knowledge_files!fk_knowledge_files_agent_id (
+          knowledge_files!knowledge_files_agent_id_fkey (
             id, 
             filename
           )
@@ -195,7 +195,7 @@ export default function Agents() {
                   </div>
                 </div>
 
-                {/* ===== NOVO: Mostrar status da instância WhatsApp ===== */}
+                {/* Show WhatsApp connection status */}
                 {agent.whatsapp_numbers && agent.whatsapp_numbers.length > 0 && (
                   <div className="text-xs">
                     <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
