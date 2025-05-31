@@ -1,16 +1,16 @@
 
-import { Bot, Settings, Trash2, FileText, Smartphone } from 'lucide-react';
+import { Bot, Edit, Trash2, FileText, Smartphone } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Link } from 'react-router-dom';
 import { Agent } from '@/types/agent';
 
 interface AgentCardProps {
   agent: Agent;
-  onToggle: (agentId: string, isActive: boolean) => void;
   onDelete: (agentId: string) => void;
 }
 
-export const AgentCard = ({ agent, onToggle, onDelete }: AgentCardProps) => {
+export const AgentCard = ({ agent, onDelete }: AgentCardProps) => {
   return (
     <Card className="hover:shadow-lg transition-shadow">
       <CardHeader className="pb-3">
@@ -52,14 +52,11 @@ export const AgentCard = ({ agent, onToggle, onDelete }: AgentCardProps) => {
         )}
 
         <div className="flex gap-2">
-          <Button
-            variant={agent.is_active ? "destructive" : "default"}
-            size="sm"
-            onClick={() => onToggle(agent.id, agent.is_active)}
-            className="flex-1"
-          >
-            <Settings className="mr-1 h-3 w-3" />
-            {agent.is_active ? 'Desativar' : 'Ativar'}
+          <Button asChild className="flex-1">
+            <Link to={`/agents/${agent.id}/edit`}>
+              <Edit className="mr-1 h-3 w-3" />
+              Editar
+            </Link>
           </Button>
           
           <Button

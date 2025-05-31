@@ -16,14 +16,14 @@ export const useAgents = (userId: string | undefined) => {
         .from('agents')
         .select(`
           *,
-          whatsapp_numbers!fk_whatsapp_numbers_agent_id (
+          whatsapp_numbers (
             id, 
             phone_number, 
             is_connected,
             instance_name,
             evolution_status
           ),
-          knowledge_files!knowledge_files_agent_id_fkey (
+          knowledge_files (
             id, 
             filename
           )
@@ -71,27 +71,6 @@ export const useAgents = (userId: string | undefined) => {
     }
   };
 
-  const toggleAgent = async (agentId: string, isActive: boolean) => {
-    try {
-      const { error } = await supabase
-        .from('agents')
-        .update({ is_active: !isActive })
-        .eq('id', agentId);
-
-      if (error) {
-        console.error('Erro ao atualizar agente:', error);
-        toast.error('Erro ao atualizar agente');
-        return;
-      }
-
-      toast.success(isActive ? 'Agente desativado' : 'Agente ativado');
-      fetchAgents();
-    } catch (error) {
-      console.error('Erro ao atualizar agente:', error);
-      toast.error('Erro ao atualizar agente');
-    }
-  };
-
   useEffect(() => {
     fetchAgents();
   }, [userId]);
@@ -100,7 +79,6 @@ export const useAgents = (userId: string | undefined) => {
     agents,
     loading,
     deleteAgent,
-    toggleAgent,
     refetch: fetchAgents
   };
 };

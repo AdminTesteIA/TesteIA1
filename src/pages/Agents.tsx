@@ -9,7 +9,7 @@ import { EmptyAgentsState } from '@/components/EmptyAgentsState';
 
 export default function Agents() {
   const { user } = useAuth();
-  const { agents, loading, deleteAgent, toggleAgent } = useAgents(user?.id);
+  const { agents, loading, deleteAgent } = useAgents(user?.id);
 
   if (loading) {
     return (
@@ -47,7 +47,6 @@ export default function Agents() {
             <AgentCard
               key={agent.id}
               agent={agent}
-              onToggle={toggleAgent}
               onDelete={deleteAgent}
             />
           ))}
