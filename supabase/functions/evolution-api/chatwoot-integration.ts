@@ -183,8 +183,10 @@ export async function createChatwootAgent(accountId: number, agentData: any): Pr
   try {
     result = JSON.parse(responseText);
     console.log('🟢 [CHATWOOT] Agent Created Successfully:', JSON.stringify(result, null, 2));
-    console.log('🟢 [CHATWOOT] Agent Access Token:', result.access_token ? 'Present' : 'Missing');
-    return result.access_token || CHATWOOT_CONFIG.PLATFORM_TOKEN;
+    
+    // Retornar o access_token do usuário criado para usar na criação da Inbox
+    console.log('🟢 [CHATWOOT] Agent Access Token:', userResult.access_token ? 'Present' : 'Missing');
+    return userResult.access_token || CHATWOOT_CONFIG.PLATFORM_TOKEN;
   } catch (parseError) {
     console.error('🔴 [CHATWOOT] JSON Parse Error:', parseError);
     console.error('🔴 [CHATWOOT] Raw Response:', responseText);
@@ -195,11 +197,13 @@ export async function createChatwootAgent(accountId: number, agentData: any): Pr
 export async function createChatwootInbox(
   accountId: number,
   inboxName: string,
+  agentToken: string,
   webhookNotificationUrl: string = ""
 ): Promise<number> {
   console.log('🟡 [CHATWOOT] === STARTING INBOX CREATION ===');
   console.log('🟡 [CHATWOOT] Account ID:', accountId);
   console.log('🟡 [CHATWOOT] Inbox Name:', inboxName);
+  console.log('🟡 [CHATWOOT] Agent Token (first 10 chars):', agentToken.substring(0, 10));
   console.log('🟡 [CHATWOOT] Webhook Notification URL:', webhookNotificationUrl);
 
   const apiUrl = `${CHATWOOT_CONFIG.URL}/api/v1/accounts/${accountId}/inboxes`;
@@ -223,8 +227,8 @@ export async function createChatwootInbox(
   const response = await fetch(apiUrl, {
     method: "POST",
     headers: {
-      // ALTERAÇÃO: usar PLATFORM_TOKEN em vez de agentToken
-      "api_access_token": CHATWOOT_CONFIG.PLATFORM_TOKEN,
+      // ALTERAÇÃO: usar agentToken em vez de PLATFORM_TOKEN
+      "api_access_token": agentToken,
       "Content-Type": "application/json"
     },
     body: JSON.stringify(body)
@@ -337,12 +341,12 @@ export async function getOrCreateChatwootSetup(agentId: string, agentData: any):
   const accountId = await createChatwootAccount(enrichedAgentData);
   const agentToken = await createChatwootAgent(accountId, enrichedAgentData);
 
-  // Criar a Inbox no Chatwoot usando PLATFORM_TOKEN
+  // Criar a Inbox no Chatwoot usando o agentToken
   const inboxName = `WhatsApp ${agentData.name}`;
   // Se quiser receber callbacks de eventos do Chatwoot, configure a URL abaixo. 
   // Caso não precise, deixe string vazia.
   const webhookNotificationUrl = "";
-  const inboxId = await createChatwootInbox(accountId, inboxName, webhookNotificationUrl);
+  const inboxId = await createChatwootInbox(accountId, inboxName, agentToken, webhookNotificationUrl);
 
   console.log('🟢 [CHATWOOT] Setup completed successfully');
   console.log('🟢 [CHATWOOT] Final Account ID:', accountId);
