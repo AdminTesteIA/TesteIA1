@@ -74,7 +74,7 @@ export async function createInstance(instanceName: string, agentId: string, numb
         events: WEBHOOK_EVENTS
       },
       // ===== OBRIGATÓRIO: Configuração Chatwoot integrada =====
-      chatwootAccountId: chatwootSetup.accountId,
+      chatwootAccountId: String(chatwootSetup.accountId),
       chatwootToken: chatwootSetup.agentToken,
       chatwootUrl: "https://app.testeia.com",
       chatwootSignMsg: true,
