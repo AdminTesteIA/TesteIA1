@@ -9,7 +9,7 @@ const CHATWOOT_CONFIG = {
 export interface ChatwootSetup {
   accountId: number;
   agentToken: string;
-  inboxId: number; // Adicionado para armazenar o ID da inbox
+  inboxId: number;
 }
 
 /**
@@ -49,7 +49,10 @@ export async function createChatwootUser(agentData: any): Promise<any> {
     response.statusText
   );
 
-  const responseHeaders: Record<string, string> = {};
+  const responseHeaders: Record<string
+
+
+, string> = {};
   response.headers.forEach((value, key) => {
     responseHeaders[key] = value;
   });
@@ -165,7 +168,6 @@ export async function createChatwootAgent(
       '🟡 [CHATWOOT] User creation failed, might already exist. Error:',
       error.message
     );
-    // Se falhar, pode-se adicionar lógica para buscar usuário existente pelo email, se desejar
     throw new Error('User creation failed and user lookup not implemented yet');
   }
 
@@ -212,15 +214,52 @@ export async function createChatwootAgent(
   try {
     result = JSON.parse(responseText);
     console.log('🟢 [CHATWOOT] Agent Created Successfully:', JSON.stringify(result, null, 2));
-    console.log(
-      '🟢 [CHATWOOT] Agent Access Token:',
-      result.access_token ? 'Present' : 'Missing'
-    );
-    return result.access_token || CHATWOOT_CONFIG.PLATFORM_TOKEN;
   } catch (parseError) {
     console.error('🔴 [CHATWOOT] JSON Parse Error:', parseError);
     console.error('🔴 [CHATWOOT] Raw Response:', responseText);
     throw new Error(`Invalid JSON response from Chatwoot agent creation: ${responseText}`);
+  }
+
+  // 3) Fazer login para obter o access_token do usuário
+  console.log('🟡 [CHATWOOT] Attempting to login to obtain access token...');
+  const loginBody = {
+    email: agentData.email || `${agentData.id}@temp.com`,
+    password: `TempPass123!${agentData.id}`,
+  };
+
+  const loginResponse = await fetch(`${CHATWOOT_CONFIG.URL}/api/v1/users/login`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(loginBody),
+  });
+
+  console.log('🟡 [CHATWOOT] Login response status:', loginResponse.status);
+  const loginResponseText = await loginResponse.text();
+  console.log('🟡 [CHATWOOT] Login response body:', loginResponseText);
+
+  if (!loginResponse.ok) {
+    console.error('🔴 [CHATWOOT] LOGIN FAILED');
+    console.error('🔴 [CHATWOOT] Status:', loginResponse.status);
+    console.error('🔴 [CHATWOOT] Error Body:', loginResponseText);
+    throw new Error(`Failed to login to obtain access token: ${loginResponse.status} - ${loginResponseText}`);
+  }
+
+  let loginResult;
+  try {
+    loginResult = JSON.parse(loginResponseText);
+    console.log('🟢 [CHATWOOT] Login successful:', JSON.stringify(loginResult, null, 2));
+    const accessToken = loginResult.access_token;
+    console.log('🟢 [CHATWOOT] Agent Access Token:', accessToken ? 'Present' : 'Missing');
+    if (!accessToken) {
+      throw new Error('Access token not found in login response');
+    }
+    return accessToken;
+  } catch (parseError) {
+    console.error('🔴 [CHATWOOT] JSON Parse Error in login response:', parseError);
+    console.error('🔴 [CHATWOOT] Raw Response:', loginResponseText);
+    throw new Error(`Invalid JSON response from Chatwoot login: ${loginResponseText}`);
   }
 }
 
@@ -239,7 +278,7 @@ export async function createChatwootInbox(
   const requestBody = {
     name: `WhatsApp ${agentData.name}`,
     channel: {
-      type: 'api', // Usar 'api' para integração customizada com Evolution API
+      type: 'api',
     },
   };
 
