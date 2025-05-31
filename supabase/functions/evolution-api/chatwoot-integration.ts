@@ -4,7 +4,6 @@ const CHATWOOT_CONFIG = {
   URL: 'https://app.testeia.com',
   TOKEN: 'TgQaBuYFZPQ6wrHNsm5XeANn',
   PLATFORM_TOKEN: 'TgQaBuYFZPQ6wrHNsm5XeANn',
-  USER_TOKEN: 'yngPHaWfRJzjLwanSVWYTfWF'
 };
 
 export interface ChatwootSetup {
@@ -225,7 +224,7 @@ export async function createChatwootInbox(
     method: "POST",
     headers: {
       // ALTERAÇÃO: usar PLATFORM_TOKEN em vez de agentToken
-      "api_access_token": CHATWOOT_CONFIG.USER_TOKEN,
+      "api_access_token": CHATWOOT_CONFIG.PLATFORM_TOKEN,
       "Content-Type": "application/json"
     },
     body: JSON.stringify(body)
