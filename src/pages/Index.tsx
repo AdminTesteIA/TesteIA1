@@ -133,7 +133,7 @@ export default function Index() {
             <Bot className="h-8 w-8 text-blue-400" />
             <span className="text-xl font-bold">TesteIA</span>
           </div>
-          <p className="text-gray-400">© 2024 TesteIA. Todos os direitos reservados.</p>
+          <p className="text-gray-400">© 2025 TesteIA. Todos os direitos reservados.</p>
         </div>
       </footer>
     </div>;
