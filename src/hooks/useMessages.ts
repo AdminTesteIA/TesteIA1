@@ -1,99 +1,110 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useEvolutionAPI } from '@/hooks/useEvolutionAPI';
-import { toast } from 'sonner';
-import type { Message, Conversation } from '@/types/conversations';
 
-export const useMessages = (selectedConversation: Conversation | null) => {
-  const [messages, setMessages] = useState<Message[]>([]);
+import { useState } from 'react';
+
+const mockMessages = {
+  '1': [
+    {
+      id: '1',
+      content: 'Olá! Como posso ajudar?',
+      is_from_contact: false,
+      created_at: new Date(Date.now() - 1000 * 60 * 10).toISOString(),
+      message_type: 'text',
+      conversation_id: '1',
+      delivery_status: 'read' as const
+    },
+    {
+      id: '2',
+      content: 'Oi, como você está?',
+      is_from_contact: true,
+      created_at: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
+      message_type: 'text',
+      conversation_id: '1',
+      delivery_status: 'delivered' as const
+    }
+  ],
+  '2': [
+    {
+      id: '3',
+      content: 'Boa tarde! Em que posso ajudá-la?',
+      is_from_contact: false,
+      created_at: new Date(Date.now() - 1000 * 60 * 35).toISOString(),
+      message_type: 'text',
+      conversation_id: '2',
+      delivery_status: 'read' as const
+    },
+    {
+      id: '4',
+      content: 'Obrigada pelo atendimento!',
+      is_from_contact: true,
+      created_at: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
+      message_type: 'text',
+      conversation_id: '2',
+      delivery_status: 'delivered' as const
+    }
+  ],
+  '3': [
+    {
+      id: '5',
+      content: 'Olá Pedro! Como posso te ajudar?',
+      is_from_contact: false,
+      created_at: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
+      message_type: 'text',
+      conversation_id: '3',
+      delivery_status: 'read' as const
+    },
+    {
+      id: '6',
+      content: 'Quando posso passar aí?',
+      is_from_contact: true,
+      created_at: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
+      message_type: 'text',
+      conversation_id: '3',
+      delivery_status: 'delivered' as const
+    }
+  ]
+};
+
+export const useMessages = (selectedConversationId: string | null) => {
+  const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
-  const [syncingMessages, setSyncingMessages] = useState(false);
-  const { sendMessage: sendEvolutionMessage } = useEvolutionAPI();
 
-  const fetchMessages = async () => {
-    if (!selectedConversation) {
+  const fetchMessages = () => {
+    if (selectedConversationId && mockMessages[selectedConversationId as keyof typeof mockMessages]) {
+      setMessages(mockMessages[selectedConversationId as keyof typeof mockMessages]);
+    } else {
       setMessages([]);
-      return;
-    }
-
-    setSyncingMessages(true);
-    try {
-      console.log('Fetching messages for conversation:', selectedConversation.id);
-
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('conversation_id', selectedConversation.id)
-        .order('created_at', { ascending: true });
-
-      if (error) {
-        console.error('Error fetching messages:', error);
-        return;
-      }
-
-      console.log('Messages found:', data?.length || 0);
-      setMessages(data || []);
-
-    } catch (error) {
-      console.error('Error fetching messages:', error);
-    } finally {
-      setSyncingMessages(false);
     }
   };
 
-  const sendMessage = async () => {
-    if (!newMessage.trim() || !selectedConversation || sendingMessage) return;
+  const sendMessage = () => {
+    if (!newMessage.trim() || sendingMessage) return;
 
     setSendingMessage(true);
-    try {
-      // Criar mensagem local primeiro
-      const tempMessage: Message = {
-        id: `temp-${Date.now()}`,
+    
+    // Simular envio
+    setTimeout(() => {
+      const newMsg = {
+        id: Date.now().toString(),
         content: newMessage,
         is_from_contact: false,
         created_at: new Date().toISOString(),
         message_type: 'text',
-        conversation_id: selectedConversation.id,
-        delivery_status: 'sending'
+        conversation_id: selectedConversationId,
+        delivery_status: 'sent' as const
       };
-
-      setMessages(prev => [...prev, tempMessage]);
-      const messageToSend = newMessage;
+      
+      setMessages(prev => [...prev, newMsg]);
       setNewMessage('');
-
-      // Enviar via Evolution API
-      await sendEvolutionMessage(
-        selectedConversation.whatsapp_number.phone_number,
-        messageToSend,
-        selectedConversation.contact_number
-      );
-
-      // Buscar mensagens atualizadas
-      await fetchMessages();
-      toast.success('Mensagem enviada!');
-
-    } catch (error) {
-      console.error('Error sending message:', error);
-      toast.error('Erro ao enviar mensagem');
-      // Remover mensagem temporária em caso de erro
-      setMessages(prev => prev.filter(msg => !msg.id.startsWith('temp-')));
-    } finally {
       setSendingMessage(false);
-    }
+    }, 1000);
   };
-
-  useEffect(() => {
-    fetchMessages();
-  }, [selectedConversation]);
 
   return {
     messages,
-    setMessages,
     newMessage,
     setNewMessage,
     sendingMessage,
-    syncingMessages,
     sendMessage,
     fetchMessages
   };

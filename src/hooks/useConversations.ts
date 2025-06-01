@@ -7,81 +7,72 @@ const mockConversations = [
     id: '1',
     push_name: 'João Silva',
     contact_number: '+55 11 99999-1234',
+    remote_jid: '5511999991234@s.whatsapp.net',
     last_message_at: new Date(Date.now() - 1000 * 60 * 5).toISOString(), // 5 min ago
-    last_message: 'Oi, como você está?',
-    unread_count: 2,
-    avatar: null
+    whatsapp_number: {
+      id: 'whatsapp-1',
+      phone_number: '+55 11 88888-0000',
+      is_connected: true,
+      agent: {
+        id: 'agent-1',
+        name: 'Agent Bot'
+      }
+    },
+    metadata: {
+      pushName: 'João Silva',
+      profilePicUrl: null
+    },
+    _count: {
+      messages: 2
+    }
   },
   {
     id: '2',
     push_name: 'Maria Santos',
     contact_number: '+55 11 88888-5678',
+    remote_jid: '5511888885678@s.whatsapp.net',
     last_message_at: new Date(Date.now() - 1000 * 60 * 30).toISOString(), // 30 min ago
-    last_message: 'Obrigada pelo atendimento!',
-    unread_count: 0,
-    avatar: null
+    whatsapp_number: {
+      id: 'whatsapp-1',
+      phone_number: '+55 11 88888-0000',
+      is_connected: true,
+      agent: {
+        id: 'agent-1',
+        name: 'Agent Bot'
+      }
+    },
+    metadata: {
+      pushName: 'Maria Santos',
+      profilePicUrl: null
+    },
+    _count: {
+      messages: 2
+    }
   },
   {
     id: '3',
     push_name: 'Pedro Costa',
     contact_number: '+55 11 77777-9012',
+    remote_jid: '5511777779012@s.whatsapp.net',
     last_message_at: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), // 2 hours ago
-    last_message: 'Quando posso passar aí?',
-    unread_count: 1,
-    avatar: null
+    whatsapp_number: {
+      id: 'whatsapp-1',
+      phone_number: '+55 11 88888-0000',
+      is_connected: true,
+      agent: {
+        id: 'agent-1',
+        name: 'Agent Bot'
+      }
+    },
+    metadata: {
+      pushName: 'Pedro Costa',
+      profilePicUrl: null
+    },
+    _count: {
+      messages: 2
+    }
   }
 ];
-
-const mockMessages = {
-  '1': [
-    {
-      id: '1',
-      content: 'Olá! Como posso ajudar?',
-      is_from_contact: false,
-      created_at: new Date(Date.now() - 1000 * 60 * 10).toISOString(),
-      delivery_status: 'read' as const
-    },
-    {
-      id: '2',
-      content: 'Oi, como você está?',
-      is_from_contact: true,
-      created_at: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
-      delivery_status: 'delivered' as const
-    }
-  ],
-  '2': [
-    {
-      id: '3',
-      content: 'Boa tarde! Em que posso ajudá-la?',
-      is_from_contact: false,
-      created_at: new Date(Date.now() - 1000 * 60 * 35).toISOString(),
-      delivery_status: 'read' as const
-    },
-    {
-      id: '4',
-      content: 'Obrigada pelo atendimento!',
-      is_from_contact: true,
-      created_at: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-      delivery_status: 'delivered' as const
-    }
-  ],
-  '3': [
-    {
-      id: '5',
-      content: 'Olá Pedro! Como posso te ajudar?',
-      is_from_contact: false,
-      created_at: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
-      delivery_status: 'read' as const
-    },
-    {
-      id: '6',
-      content: 'Quando posso passar aí?',
-      is_from_contact: true,
-      created_at: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
-      delivery_status: 'delivered' as const
-    }
-  ]
-};
 
 export const useConversations = () => {
   const [conversations] = useState(mockConversations);
@@ -96,49 +87,5 @@ export const useConversations = () => {
     conversations,
     loading,
     fetchConversations
-  };
-};
-
-export const useMessages = (selectedConversationId: string | null) => {
-  const [messages, setMessages] = useState<any[]>([]);
-  const [newMessage, setNewMessage] = useState('');
-  const [sendingMessage, setSendingMessage] = useState(false);
-
-  const fetchMessages = () => {
-    if (selectedConversationId && mockMessages[selectedConversationId as keyof typeof mockMessages]) {
-      setMessages(mockMessages[selectedConversationId as keyof typeof mockMessages]);
-    } else {
-      setMessages([]);
-    }
-  };
-
-  const sendMessage = () => {
-    if (!newMessage.trim() || sendingMessage) return;
-
-    setSendingMessage(true);
-    
-    // Simular envio
-    setTimeout(() => {
-      const newMsg = {
-        id: Date.now().toString(),
-        content: newMessage,
-        is_from_contact: false,
-        created_at: new Date().toISOString(),
-        delivery_status: 'sent' as const
-      };
-      
-      setMessages(prev => [...prev, newMsg]);
-      setNewMessage('');
-      setSendingMessage(false);
-    }, 1000);
-  };
-
-  return {
-    messages,
-    newMessage,
-    setNewMessage,
-    sendingMessage,
-    sendMessage,
-    fetchMessages
   };
 };

@@ -2,7 +2,8 @@
 import { useState, useEffect } from 'react';
 import { ConversationsList } from '@/components/ConversationsList';
 import { ChatArea } from '@/components/ChatArea';
-import { useConversations, useMessages } from '@/hooks/useConversations';
+import { useConversations } from '@/hooks/useConversations';
+import { useMessages } from '@/hooks/useMessages';
 
 interface ChatInterfaceProps {
   userId: string;
@@ -34,7 +35,7 @@ export function ChatInterface({ userId, connectedWhatsAppNumbers }: ChatInterfac
   };
 
   const filteredConversations = conversations.filter(conv =>
-    conv.push_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    conv.push_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     conv.contact_number.includes(searchTerm)
   );
 
