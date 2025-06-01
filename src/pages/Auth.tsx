@@ -141,7 +141,7 @@ export default function Auth() {
             <Bot className="h-8 w-8 text-blue-600" />
             <MessageSquare className="h-8 w-8 text-green-600" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Nick</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">TesteIA</h1>
           <p className="text-gray-600">Sistema de IA para WhatsApp</p>
         </div>
 
