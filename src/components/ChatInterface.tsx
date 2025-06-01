@@ -1,11 +1,8 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ConversationsList } from '@/components/ConversationsList';
 import { ChatArea } from '@/components/ChatArea';
-import { useConversations } from '@/hooks/useConversations';
-import { useMessages } from '@/hooks/useMessages';
-import { useRealtimeMessages } from '@/hooks/useRealtimeMessages';
-import type { Conversation } from '@/types/conversations';
+import { useConversations, useMessages } from '@/hooks/useConversations';
 
 interface ChatInterfaceProps {
   userId: string;
@@ -13,40 +10,33 @@ interface ChatInterfaceProps {
 }
 
 export function ChatInterface({ userId, connectedWhatsAppNumbers }: ChatInterfaceProps) {
-  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
+  const [selectedConversation, setSelectedConversation] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const { conversations, loading, fetchConversations } = useConversations(userId);
+  const { conversations, loading } = useConversations();
   const {
     messages,
     newMessage,
     setNewMessage,
     sendingMessage,
-    syncingMessages,
     sendMessage,
     fetchMessages
-  } = useMessages(selectedConversation);
+  } = useMessages(selectedConversation?.id);
 
-  // Configurar atualizações em tempo real
-  useRealtimeMessages({
-    userId,
-    onNewMessage: (message) => {
-      // Se a mensagem é da conversa selecionada, atualizar a lista
-      if (selectedConversation && message.conversation_id === selectedConversation.id) {
-        fetchMessages();
-      }
-      // Sempre atualizar a lista de conversas
-      fetchConversations();
-    },
-    onConversationUpdate: () => {
-      fetchConversations();
+  useEffect(() => {
+    if (selectedConversation) {
+      fetchMessages();
     }
-  });
+  }, [selectedConversation]);
 
-  const handleConversationSelect = (conversation: Conversation) => {
-    console.log('Selected conversation:', conversation);
+  const handleConversationSelect = (conversation: any) => {
     setSelectedConversation(conversation);
   };
+
+  const filteredConversations = conversations.filter(conv =>
+    conv.push_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    conv.contact_number.includes(searchTerm)
+  );
 
   if (loading) {
     return (
@@ -61,7 +51,7 @@ export function ChatInterface({ userId, connectedWhatsAppNumbers }: ChatInterfac
       {/* Lista de Conversas */}
       <div className="lg:col-span-1">
         <ConversationsList
-          conversations={conversations}
+          conversations={filteredConversations}
           selectedConversation={selectedConversation}
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
@@ -77,7 +67,6 @@ export function ChatInterface({ userId, connectedWhatsAppNumbers }: ChatInterfac
           newMessage={newMessage}
           setNewMessage={setNewMessage}
           sendingMessage={sendingMessage}
-          syncingMessages={syncingMessages}
           onSendMessage={sendMessage}
         />
       </div>

@@ -2,41 +2,39 @@
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { MessageSquare, Send, Phone, User, RefreshCw } from 'lucide-react';
-import { MessageDeliveryStatus } from '@/components/MessageDeliveryStatus';
-import type { Conversation, Message } from '@/types/conversations';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { MessageSquare, Send, Phone, User, Clock, Check, CheckCheck } from 'lucide-react';
 
 interface ChatAreaProps {
-  selectedConversation: Conversation | null;
-  messages: Message[];
+  selectedConversation: any;
+  messages: any[];
   newMessage: string;
   setNewMessage: (message: string) => void;
   sendingMessage: boolean;
-  syncingMessages?: boolean;
   onSendMessage: () => void;
 }
 
-// Função para formatar número de telefone brasileiro
-const formatPhoneNumber = (phoneNumber: string): string => {
-  if (!phoneNumber) return '';
-  
-  // Remove @s.whatsapp.net e outros caracteres especiais
-  const cleanNumber = phoneNumber.replace('@s.whatsapp.net', '').replace(/\D/g, '');
-  
-  // Se o número tem 13 dígitos e começa com 55 (Brasil)
-  if (cleanNumber.length === 13 && cleanNumber.startsWith('55')) {
-    const ddd = cleanNumber.substring(2, 4);
-    const firstPart = cleanNumber.substring(4, 9);
-    const secondPart = cleanNumber.substring(9, 13);
-    return `+55 (${ddd}) ${firstPart}-${secondPart}`;
-  }
-  
-  // Para outros formatos, retorna o número limpo com +
-  return `+${cleanNumber}`;
+const formatTime = (dateString: string) => {
+  const date = new Date(dateString);
+  return date.toLocaleTimeString('pt-BR', { 
+    hour: '2-digit', 
+    minute: '2-digit' 
+  });
 };
 
-// Função para obter as iniciais do nome para o fallback do avatar
+const DeliveryStatusIcon = ({ status }: { status: string }) => {
+  switch (status) {
+    case 'sent':
+      return <Check className="h-3 w-3 text-gray-400" />;
+    case 'delivered':
+      return <CheckCheck className="h-3 w-3 text-gray-400" />;
+    case 'read':
+      return <CheckCheck className="h-3 w-3 text-blue-500" />;
+    default:
+      return <Clock className="h-3 w-3 text-gray-400" />;
+  }
+};
+
 const getInitials = (name: string): string => {
   if (!name) return 'U';
   return name
@@ -53,7 +51,6 @@ export function ChatArea({
   newMessage,
   setNewMessage,
   sendingMessage,
-  syncingMessages = false,
   onSendMessage
 }: ChatAreaProps) {
   if (!selectedConversation) {
@@ -68,39 +65,28 @@ export function ChatArea({
     );
   }
 
-  const formattedPhoneNumber = formatPhoneNumber(selectedConversation.contact_number);
-  const profilePicUrl = selectedConversation.metadata?.profilePicUrl;
-  const contactName = selectedConversation.push_name || selectedConversation.metadata?.pushName || formattedPhoneNumber;
-
   return (
     <Card className="h-full flex flex-col">
       <CardHeader className="border-b">
         <div className="flex items-center space-x-3">
           <Avatar className="h-10 w-10">
-            <AvatarImage src={profilePicUrl} alt={contactName} />
             <AvatarFallback className="bg-blue-100 text-blue-600">
-              {selectedConversation.push_name ? getInitials(selectedConversation.push_name) : <User className="h-5 w-5" />}
+              {getInitials(selectedConversation.push_name)}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold truncate">
-              {contactName}
+              {selectedConversation.push_name}
             </h3>
             <div className="flex items-center space-x-4 text-sm text-gray-500">
               <div className="flex items-center space-x-1">
                 <Phone className="h-3 w-3" />
-                <span>{formattedPhoneNumber}</span>
+                <span>{selectedConversation.contact_number}</span>
               </div>
               <div className="flex items-center space-x-1">
                 <MessageSquare className="h-3 w-3" />
-                <span>via {selectedConversation.whatsapp_number.agent.name}</span>
+                <span>WhatsApp Business</span>
               </div>
-              {syncingMessages && (
-                <div className="flex items-center space-x-1">
-                  <RefreshCw className="h-3 w-3 animate-spin" />
-                  <span>Sincronizando...</span>
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -112,9 +98,7 @@ export function ChatArea({
           {messages.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               <MessageSquare className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-              <p>
-                {syncingMessages ? 'Carregando mensagens...' : 'Nenhuma mensagem ainda'}
-              </p>
+              <p>Nenhuma mensagem ainda</p>
             </div>
           ) : (
             messages.map((message) => (
@@ -130,11 +114,14 @@ export function ChatArea({
                   }`}
                 >
                   <p className="text-sm">{message.content}</p>
-                  <MessageDeliveryStatus
-                    status={message.delivery_status}
-                    timestamp={message.created_at}
-                    isFromContact={message.is_from_contact}
-                  />
+                  <div className={`flex items-center justify-end space-x-1 mt-1 text-xs ${
+                    message.is_from_contact ? 'text-gray-500' : 'text-blue-100'
+                  }`}>
+                    <span>{formatTime(message.created_at)}</span>
+                    {!message.is_from_contact && (
+                      <DeliveryStatusIcon status={message.delivery_status} />
+                    )}
+                  </div>
                 </div>
               </div>
             ))
@@ -144,11 +131,7 @@ export function ChatArea({
         {/* Input de Nova Mensagem */}
         <div className="flex space-x-2">
           <Input
-            placeholder={
-              selectedConversation.whatsapp_number.is_connected 
-                ? "Digite sua mensagem..." 
-                : "WhatsApp desconectado"
-            }
+            placeholder="Digite sua mensagem..."
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyPress={(e) => {
@@ -157,15 +140,11 @@ export function ChatArea({
                 onSendMessage();
               }
             }}
-            disabled={sendingMessage || !selectedConversation.whatsapp_number.is_connected}
+            disabled={sendingMessage}
           />
           <Button
             onClick={onSendMessage}
-            disabled={
-              !newMessage.trim() || 
-              sendingMessage || 
-              !selectedConversation.whatsapp_number.is_connected
-            }
+            disabled={!newMessage.trim() || sendingMessage}
             className="flex items-center space-x-2"
           >
             {sendingMessage ? (
@@ -175,12 +154,6 @@ export function ChatArea({
             )}
           </Button>
         </div>
-
-        {!selectedConversation.whatsapp_number.is_connected && (
-          <p className="text-xs text-amber-600 mt-2">
-            WhatsApp desconectado. Reconecte na seção de agentes para enviar mensagens.
-          </p>
-        )}
       </CardContent>
     </Card>
   );
