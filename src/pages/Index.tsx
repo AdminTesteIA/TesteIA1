@@ -39,7 +39,7 @@ export default function Index() {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-2">
               <Bot className="h-8 w-8 text-blue-600" />
-              <span className="text-xl font-bold text-gray-900">Nick</span>
+              <span className="text-xl font-bold text-gray-900">TesteIA</span>
             </div>
             <div className="flex items-center space-x-4">
               {user ? <Button asChild>
@@ -131,9 +131,9 @@ export default function Index() {
         <div className="max-w-7xl mx-auto text-center">
           <div className="flex items-center justify-center space-x-2 mb-4">
             <Bot className="h-8 w-8 text-blue-400" />
-            <span className="text-xl font-bold">Nick</span>
+            <span className="text-xl font-bold">TesteIA</span>
           </div>
-          <p className="text-gray-400">© 2024 Nick IA. Todos os direitos reservados.</p>
+          <p className="text-gray-400">© 2024 TesteIA. Todos os direitos reservados.</p>
         </div>
       </footer>
     </div>;
