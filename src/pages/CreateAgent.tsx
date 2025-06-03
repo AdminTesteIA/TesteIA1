@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -41,7 +40,12 @@ export default function CreateAgent() {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase
+      console.log('🟡 [CREATE] === INICIANDO PROCESSO DE CRIAÇÃO ===');
+      console.log('🟡 [CREATE] User:', user.email);
+
+      // Primeiro criar o agente temporariamente sem assistant_id
+      console.log('🟡 [CREATE] Criando agente temporário no banco...');
+      const { data: tempAgent, error: agentError } = await supabase
         .from('agents')
         .insert({
           name: formData.name,
@@ -49,23 +53,87 @@ export default function CreateAgent() {
           knowledge_base: formData.knowledge_base || null,
           openai_api_key: formData.openai_api_key || null,
           is_active: formData.is_active,
-          assistant_id: '',
           user_id: user.id
         })
         .select()
         .single();
 
-      if (error) {
-        console.error('Erro ao criar agente:', error);
+      if (agentError) {
+        console.error('🔴 [CREATE] Erro ao criar agente temporário:', agentError);
         toast.error('Erro ao criar agente');
         return;
       }
 
-      toast.success('Agente criado com sucesso!');
-      navigate('/agents');
+      console.log('🟢 [CREATE] Agente temporário criado:', tempAgent.id);
+
+      // Testar conexão com edge function primeiro
+      console.log('🟡 [CREATE] === TESTANDO CONEXÃO COM EDGE FUNCTION ===');
+      
+      try {
+        console.log('🟡 [CREATE] Payload para edge function:', {
+          action: 'createAssistant',
+          agentId: tempAgent.id,
+          userEmail: user.email
+        });
+
+        const response = await fetch(`${supabase.supabaseUrl}/functions/v1/openai-assistant`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${supabase.supabaseKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'createAssistant',
+            agentId: tempAgent.id,
+            userEmail: user.email
+          })
+        });
+
+        console.log('🟡 [CREATE] Response status:', response.status);
+        console.log('🟡 [CREATE] Response headers:', Object.fromEntries(response.headers.entries()));
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('🔴 [CREATE] Response error:', errorText);
+          throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+
+        const assistantData = await response.json();
+        console.log('🟢 [CREATE] Assistant response:', assistantData);
+
+        if (assistantData.success) {
+          console.log('🟢 [CREATE] === PROCESSO COMPLETO ===');
+          toast.success('Agente e Assistant criados com sucesso!');
+          navigate('/agents');
+        } else {
+          throw new Error(assistantData.error || 'Falha na criação do Assistant');
+        }
+
+      } catch (assistantError) {
+        console.error('🔴 [CREATE] === FALHA NA CRIAÇÃO DO ASSISTANT ===');
+        console.error('🔴 [CREATE] Erro:', assistantError);
+        
+        // Deletar o agente se falhar o Assistant
+        console.log('🟡 [CREATE] Deletando agente criado...', tempAgent.id);
+        const { error: deleteError } = await supabase
+          .from('agents')
+          .delete()
+          .eq('id', tempAgent.id);
+
+        if (deleteError) {
+          console.error('🔴 [CREATE] Erro ao deletar agente:', deleteError);
+        } else {
+          console.log('🟢 [CREATE] Agente deletado com sucesso');
+        }
+
+        toast.error(`Erro ao criar Assistant OpenAI: ${assistantError.message}`);
+        throw assistantError;
+      }
+
     } catch (error) {
-      console.error('Erro ao criar agente:', error);
-      toast.error('Erro ao criar agente');
+      console.error('🔴 [CREATE] === ERRO GERAL NO PROCESSO ===');
+      console.error('🔴 [CREATE] Erro:', error);
+      toast.error('Erro ao criar agente e Assistant');
     } finally {
       setLoading(false);
     }
