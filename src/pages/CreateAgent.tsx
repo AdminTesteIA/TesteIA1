@@ -55,7 +55,7 @@ export default function CreateAgent() {
           is_active: formData.is_active,
           user_id: user.id
         })
-        .select()
+        .select();
 
       if (agentError) {
         console.error('🔴 [CREATE] Erro ao criar agente temporário:', agentError);
