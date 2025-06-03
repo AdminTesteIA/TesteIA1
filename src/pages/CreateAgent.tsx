@@ -76,10 +76,10 @@ export default function CreateAgent() {
           userEmail: user.email
         });
 
-        const response = await fetch(`${supabase.supabaseUrl}/functions/v1/openai-assistant`, {
+        const response = await fetch('https://pdjgzhajrdhksvugdkuf.supabase.co/functions/v1/openai-assistant', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${supabase.supabaseKey}`,
+            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkamd6aGFqcmRoa3N2dWdka3VmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgzNTAzMDIsImV4cCI6MjA2MzkyNjMwMn0.PSJwA7zK9I653ww0qtJ7Pdzt0y_9OUjOJzOGDUEVsJg`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
