@@ -45,6 +45,7 @@ export default function CreateAgent() {
     }
 
     setLoading(true);
+    let tempAgent: any = null;
 
     try {
       console.log('🟡 [CREATE] === INICIANDO PROCESSO DE CRIAÇÃO ===');
@@ -80,7 +81,7 @@ export default function CreateAgent() {
         return;
       }
 
-      const tempAgent = tempAgents[0];
+      tempAgent = tempAgents[0];
       console.log('🟢 [CREATE] Agente temporário criado:', tempAgent.id);
 
       // 2. Chamar edge function usando o método oficial do Supabase
