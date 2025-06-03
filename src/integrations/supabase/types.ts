@@ -11,7 +11,7 @@ export type Database = {
     Tables: {
       agents: {
         Row: {
-          assistant_id: string
+          assistant_id: string | null
           base_prompt: string
           created_at: string
           id: string
@@ -23,7 +23,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          assistant_id: string
+          assistant_id?: string | null
           base_prompt: string
           created_at?: string
           id?: string
@@ -35,7 +35,7 @@ export type Database = {
           user_id: string
         }
         Update: {
-          assistant_id?: string
+          assistant_id?: string | null
           base_prompt?: string
           created_at?: string
           id?: string
