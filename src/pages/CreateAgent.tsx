@@ -49,6 +49,7 @@ export default function CreateAgent() {
           knowledge_base: formData.knowledge_base || null,
           openai_api_key: formData.openai_api_key || null,
           is_active: formData.is_active,
+          assistant_id: '',
           user_id: user.id
         })
         .select()

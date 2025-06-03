@@ -6,6 +6,7 @@ export interface Agent {
   is_active: boolean;
   knowledge_base: string | null;
   openai_api_key: string | null;
+  assistant_id: string | null;
   created_at: string;
   whatsapp_numbers?: {
     id: string;
