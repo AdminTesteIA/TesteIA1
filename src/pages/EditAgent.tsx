@@ -13,15 +13,7 @@ import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { WhatsAppConnection } from '@/components/WhatsAppConnection';
 import { useOpenAIAssistant } from '@/hooks/useOpenAIAssistant';
-
-interface Agent {
-  id: string;
-  name: string;
-  base_prompt: string;
-  knowledge_base: string | null;
-  openai_api_key: string | null;
-  is_active: boolean;
-}
+import { Agent } from '@/types/agent';
 
 interface KnowledgeFile {
   id: string;
