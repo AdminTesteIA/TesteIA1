@@ -9,7 +9,6 @@ import {
   getInstanceStatus, 
   logoutInstance 
 } from './instance-management.ts';
-//import { sendMessage } from './messaging.ts';
 import { handleSyncChats, handleSyncContacts, handleSyncMessages } from './sync-operations.ts';
 import type { EvolutionAPIRequest, AuthHeaders } from './types.ts';
 
@@ -35,9 +34,6 @@ serve(async (req) => {
       
       case 'configureWebhook':
         return await configureWebhook(instanceName!, authHeaders);
-      
-//      case 'sendMessage':
- //       return await sendMessage(instanceName!, message!, to!, authHeaders);
       
       case 'getQRCode':
         return await getQRCode(instanceName!, authHeaders);

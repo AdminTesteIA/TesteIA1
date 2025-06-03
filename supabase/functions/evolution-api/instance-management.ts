@@ -1,6 +1,5 @@
 import { supabase } from './supabase-client.ts'
 import { corsHeaders, WEBHOOK_EVENTS } from './constants.ts'
-import { getOrCreateChatwootSetup } from './chatwoot-integration.ts'
 import type { AuthHeaders } from './types.ts'
 
 const EVOLUTION_API_URL = Deno.env.get('EVOLUTION_API_URL') ?? ''
@@ -15,7 +14,6 @@ export async function createInstance(
   console.log('🟡 [EVOLUTION] Instance Name:', instanceName)
   console.log('🟡 [EVOLUTION] Agent ID:', agentId)
   console.log('🟡 [EVOLUTION] Number:', number)
-  console.log('🟡 [EVOLUTION] Auth Headers:', JSON.stringify(authHeaders, null, 2))
 
   try {
     // 1) Buscar dados do agente no Supabase
@@ -25,8 +23,6 @@ export async function createInstance(
       .select('*')
       .eq('id', agentId)
       .maybeSingle()
-
-    console.log('🟡 [EVOLUTION] Agent query result:', { agent, agentError })
 
     if (agentError) {
       console.error('🔴 [EVOLUTION] Agent query error:', agentError)
@@ -42,23 +38,14 @@ export async function createInstance(
     const uniqueInstanceName = `${instanceName}-${number}`
     console.log('🟡 [EVOLUTION] Unique instance name:', uniqueInstanceName)
 
-    // 3) Configurar Chatwoot (conta, agente e inbox)
-    console.log('🟡 [EVOLUTION] Starting Chatwoot setup...')
-    const chatwootSetup = await getOrCreateChatwootSetup(agentId, {
-      id: agentId,
-      name: agent.name,
-      email: `${agentId}@temp.com`
-    })
-    console.log('🟢 [EVOLUTION] Chatwoot setup completed:', chatwootSetup)
-
-    // 4) Configurar webhook da Evolution que o Chatwoot receberá
+    // 3) Configurar webhook da Evolution
     const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/evolution-webhook`
     console.log('🟡 [EVOLUTION] Webhook URL:', webhookUrl)
 
-    // 5) Montar payload para criar instância na Evolution
+    // 4) Montar payload para criar instância na Evolution
     const instanceData = {
       instanceName: uniqueInstanceName,
-      token: agentId,               // aqui usamos o agentId como token para a Evolution
+      token: agentId,
       qrcode: false,
       number: number,
       integration: "WHATSAPP-BAILEYS",
@@ -74,22 +61,7 @@ export async function createInstance(
         byEvents: true,
         base64: true,
         events: WEBHOOK_EVENTS
-      },
-      // ===== CONFIGURAÇÃO DO CHATWOOT =====
-      autoCreate: true,
-      chatwootAccountId: String(chatwootSetup.accountId),   // string
-      chatwootToken: chatwootSetup.agentToken,
-      chatwootUrl: "https://app.testeia.com",               // URL do seu Chatwoot
-      chatwootSignMsg: true,
-      chatwootReopenConversation: true,
-      chatwootConversationPending: false,
-      chatwootImportContacts: true,
-      chatwootNameInbox: `WhatsApp ${agent.name}`,          // nome de identificação
-      chatwootMergeBrazilContacts: true,
-      chatwootImportMessages: true,
-      chatwootDaysLimitImportMessages: 30,
-      chatwootOrganization: agent.name,
-      chatwootLogo: ""
+      }
     }
 
     console.log('🟡 [EVOLUTION] === CREATING EVOLUTION INSTANCE ===')
@@ -103,16 +75,9 @@ export async function createInstance(
     })
 
     console.log('🟡 [EVOLUTION] Response Status:', createResponse.status)
-    console.log('🟡 [EVOLUTION] Response Status Text:', createResponse.statusText)
-
-    const responseHeaders: Record<string, string> = {}
-    createResponse.headers.forEach((value, key) => {
-      responseHeaders[key] = value
-    })
-    console.log('🟡 [EVOLUTION] Response Headers:', JSON.stringify(responseHeaders, null, 2))
 
     const responseText = await createResponse.text()
-    console.log('🟡 [EVOLUTION] Response Body (raw):', responseText)
+    console.log('🟡 [EVOLUTION] Response Body:', responseText)
 
     if (!createResponse.ok) {
       console.error('🔴 [EVOLUTION] INSTANCE CREATION FAILED')
@@ -127,11 +92,10 @@ export async function createInstance(
       console.log('🟢 [EVOLUTION] Instance Created Successfully:', JSON.stringify(instanceResult, null, 2))
     } catch (parseError) {
       console.error('🔴 [EVOLUTION] JSON Parse Error:', parseError)
-      console.error('🔴 [EVOLUTION] Raw Response:', responseText)
       throw new Error(`Invalid JSON response from Evolution API: ${responseText}`)
     }
 
-    // 6) Salvar dados da instância no Supabase, incluindo campos do Chatwoot
+    // 5) Salvar dados da instância no Supabase
     console.log('🟡 [EVOLUTION] Saving data to database...')
     const { error: whatsappError } = await supabase
       .from('whatsapp_numbers')
@@ -141,8 +105,6 @@ export async function createInstance(
         phone_number: uniqueInstanceName,
         is_connected: false,
         evolution_status: 'disconnected',
-        chatwoot_account_id: chatwootSetup.accountId,
-        chatwoot_agent_token: chatwootSetup.agentToken,
         session_data: instanceResult,
         connection_attempts: 0,
         last_connected_at: null
@@ -154,7 +116,7 @@ export async function createInstance(
       console.error('🔴 [EVOLUTION] Error saving WhatsApp number:', whatsappError)
       throw new Error(`Failed to save WhatsApp number: ${whatsappError.message}`)
     } else {
-      console.log('🟢 [EVOLUTION] WhatsApp data saved successfully with Chatwoot integration')
+      console.log('🟢 [EVOLUTION] WhatsApp data saved successfully')
     }
 
     console.log('🟢 [EVOLUTION] === INSTANCE CREATION COMPLETED SUCCESSFULLY ===')
@@ -162,15 +124,13 @@ export async function createInstance(
     return new Response(JSON.stringify({
       success: true,
       instanceResult,
-      chatwoot: chatwootSetup,
-      message: 'Instance created successfully with Chatwoot integration. Status: Disconnected (scan QR to connect).'
+      message: 'Instance created successfully. Status: Disconnected (scan QR to connect).'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
 
   } catch (error) {
     console.error('🔴 [EVOLUTION] CRITICAL ERROR in createInstance:', error)
-    console.error('🔴 [EVOLUTION] Error Stack:', error.stack)
     throw error
   }
 }
