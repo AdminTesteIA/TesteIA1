@@ -25,7 +25,13 @@ export default function CreateAgent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+
+    console.log('🟡 [HANDLE SUBMIT] Formulário submetido');
+
+    if (!user) {
+      console.error('🔴 [HANDLE SUBMIT] Usuário não está autenticado');
+      return;
+    }
 
     if (!formData.name.trim()) {
       toast.error('Nome do agente é obrigatório');
@@ -43,9 +49,9 @@ export default function CreateAgent() {
       console.log('🟡 [CREATE] === INICIANDO PROCESSO DE CRIAÇÃO ===');
       console.log('🟡 [CREATE] User:', user.email);
 
-      // Primeiro criar o agente temporariamente sem assistant_id
+      // 1. Cria o agente temporariamente sem assistant_id (usa .select() que retorna array)
       console.log('🟡 [CREATE] Criando agente temporário no banco...');
-      const { data: tempAgent, error: agentError } = await supabase
+      const { data: tempAgents, error: agentError } = await supabase
         .from('agents')
         .insert({
           name: formData.name,
@@ -55,30 +61,41 @@ export default function CreateAgent() {
           is_active: formData.is_active,
           user_id: user.id
         })
-        .select();
+        .select(); // retorna array no tempAgents
+
+      console.log('🟡 [CREATE] Resultado da inserção:', { tempAgents, agentError });
 
       if (agentError) {
         console.error('🔴 [CREATE] Erro ao criar agente temporário:', agentError);
         toast.error('Erro ao criar agente');
+        setLoading(false);
         return;
       }
 
+      if (!tempAgents || tempAgents.length === 0) {
+        console.error('🔴 [CREATE] Nenhum agente retornado na resposta');
+        toast.error('Erro ao criar agente');
+        setLoading(false);
+        return;
+      }
+
+      // Pega o primeiro (e único) elemento do array
+      const tempAgent = tempAgents[0];
       console.log('🟢 [CREATE] Agente temporário criado:', tempAgent.id);
 
-      // Testar conexão com edge function primeiro
+      // 2. Testar conexão com edge function
       console.log('🟡 [CREATE] === TESTANDO CONEXÃO COM EDGE FUNCTION ===');
-      
-      try {
-        console.log('🟡 [CREATE] Payload para edge function:', {
-          action: 'createAssistant',
-          agentId: tempAgent.id,
-          userEmail: user.email
-        });
+      console.log('🟡 [CREATE] Payload para edge function:', {
+        action: 'createAssistant',
+        agentId: tempAgent.id,
+        userEmail: user.email
+      });
 
+      try {
         const response = await fetch('https://pdjgzhajrdhksvugdkuf.supabase.co/functions/v1/openai-assistant', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkamd6aGFqcmRoa3N2dWdka3VmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgzNTAzMDIsImV4cCI6MjA2MzkyNjMwMn0.PSJwA7zK9I653ww0qtJ7Pdzt0y_9OUjOJzOGDUEVsJg`,
+            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkamd6aGFqcmRoaXJkdXZnZGt1ZmkiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTc0ODM1MDMwMiwiZXhwIjoyMDYzOTI2MzAyfQ.PSJwA7zK9I653ww0qtJ7Pdzt0y_9OUjOJzOGDUEVsJg`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
@@ -111,7 +128,7 @@ export default function CreateAgent() {
       } catch (assistantError) {
         console.error('🔴 [CREATE] === FALHA NA CRIAÇÃO DO ASSISTANT ===');
         console.error('🔴 [CREATE] Erro:', assistantError);
-        
+
         // Deletar o agente se falhar o Assistant
         console.log('🟡 [CREATE] Deletando agente criado...', tempAgent.id);
         const { error: deleteError } = await supabase
@@ -126,7 +143,7 @@ export default function CreateAgent() {
         }
 
         toast.error(`Erro ao criar Assistant OpenAI: ${assistantError.message}`);
-        throw assistantError;
+        // Não jogamos o erro para cima, pois já mostramos o toast
       }
 
     } catch (error) {
@@ -231,7 +248,7 @@ export default function CreateAgent() {
                 onChange={(e) => handleInputChange('openai_api_key', e.target.value)}
               />
               <p className="text-sm text-gray-500">
-                Opcional. Se não fornecida, será usado uma chave padrão do sistema.
+                Opcional. Se não fornecida, será usada a chave padrão do sistema.
               </p>
             </div>
 
