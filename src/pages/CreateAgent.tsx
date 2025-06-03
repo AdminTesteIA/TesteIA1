@@ -56,7 +56,6 @@ export default function CreateAgent() {
           user_id: user.id
         })
         .select()
-        .single();
 
       if (agentError) {
         console.error('🔴 [CREATE] Erro ao criar agente temporário:', agentError);
