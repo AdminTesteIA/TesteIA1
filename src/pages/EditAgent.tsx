@@ -5,13 +5,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { ArrowLeft, Bot, Save, Upload, FileText, Trash2, QrCode, Smartphone, Plus } from 'lucide-react';
+import { ArrowLeft, Bot, Save, Upload, FileText, Trash2, QrCode, Smartphone, Plus, Brain } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { WhatsAppConnection } from '@/components/WhatsAppConnection';
+import { useOpenAIAssistant } from '@/hooks/useOpenAIAssistant';
 
 interface Agent {
   id: string;
@@ -53,6 +54,8 @@ export default function EditAgent() {
     openai_api_key: '',
     is_active: true
   });
+
+  const { createAssistant, loading: assistantLoading } = useOpenAIAssistant();
 
   useEffect(() => {
     if (id) {
@@ -316,6 +319,18 @@ export default function EditAgent() {
     }));
   };
 
+  const handleCreateAssistant = async () => {
+    if (!id) return;
+
+    try {
+      await createAssistant(id);
+      // Refresh agent data to get the updated assistant_id
+      fetchAgent();
+    } catch (error) {
+      console.error('Error creating assistant:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -356,6 +371,7 @@ export default function EditAgent() {
         <TabsList>
           <TabsTrigger value="config">Configurações</TabsTrigger>
           <TabsTrigger value="knowledge">Base de Conhecimento</TabsTrigger>
+          <TabsTrigger value="assistant">Assistant OpenAI</TabsTrigger>
           <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
         </TabsList>
 
@@ -506,6 +522,66 @@ export default function EditAgent() {
                       </Button>
                     </div>
                   ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="assistant">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Brain className="h-5 w-5 text-purple-600" />
+                <span>Assistant OpenAI</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {agent.assistant_id ? (
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-2">
+                    <div className="h-3 w-3 rounded-full bg-green-500"></div>
+                    <span className="text-sm font-medium text-green-700">Assistant Criado</span>
+                  </div>
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <p className="text-sm text-green-800">
+                      <strong>Assistant ID:</strong> {agent.assistant_id}
+                    </p>
+                    <p className="text-sm text-green-600 mt-2">
+                      Seu Assistant OpenAI foi criado com sucesso e está pronto para uso!
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-2">
+                    <div className="h-3 w-3 rounded-full bg-gray-400"></div>
+                    <span className="text-sm font-medium text-gray-700">Assistant Não Criado</span>
+                  </div>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h3 className="font-medium text-blue-900 mb-2">Criar Assistant OpenAI</h3>
+                    <p className="text-sm text-blue-700 mb-4">
+                      Crie um Assistant na OpenAI baseado nas configurações deste agente. 
+                      Isso permitirá que o agente use a API de Assistants da OpenAI para conversas mais avançadas.
+                    </p>
+                    <ul className="text-sm text-blue-600 mb-4 space-y-1">
+                      <li>• Nome: {agent.name.replace(/\s+/g, '_')}_{user?.email}</li>
+                      <li>• Modelo: gpt-4o-mini</li>
+                      <li>• Ferramentas: file_search</li>
+                    </ul>
+                    <Button 
+                      onClick={handleCreateAssistant}
+                      disabled={assistantLoading}
+                      className="flex items-center space-x-2"
+                    >
+                      {assistantLoading ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      ) : (
+                        <Brain className="h-4 w-4" />
+                      )}
+                      <span>{assistantLoading ? 'Criando...' : 'Criar Assistant'}</span>
+                    </Button>
+                  </div>
                 </div>
               )}
             </CardContent>
