@@ -145,7 +145,7 @@ async function createAssistant(agentId: string, userEmail: string) {
     const assistantPayload = {
       name: assistantName,
       instructions: instructions,
-      model: "gpt-4o-mini",
+      model: "gpt-4.1-nano",
       tools: [
         { type: "file_search" }
       ],
