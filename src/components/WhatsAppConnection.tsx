@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -58,11 +57,6 @@ export const WhatsAppConnection = ({
 
     if (!phoneNumber.trim()) {
       toast.error('Digite o número do WhatsApp');
-      return;
-    }
-
-    if (!agent.openai_api_key) {
-      toast.error('Configure a chave da OpenAI no agente primeiro');
       return;
     }
 
@@ -208,7 +202,7 @@ export const WhatsAppConnection = ({
             
             <Button 
               onClick={handleCreateInstance} 
-              disabled={loading || !agent.openai_api_key}
+              disabled={loading}
               className="w-full"
             >
               {loading ? (
@@ -217,12 +211,6 @@ export const WhatsAppConnection = ({
                 <><Smartphone className="h-4 w-4 mr-2" /> Criar Instância WhatsApp</>
               )}
             </Button>
-
-            {!agent.openai_api_key && (
-              <p className="text-sm text-amber-600 bg-amber-50 p-2 rounded">
-                Configure a chave da OpenAI no agente antes de criar a instância do WhatsApp.
-              </p>
-            )}
           </div>
         ) : (
           <div className="space-y-4">
